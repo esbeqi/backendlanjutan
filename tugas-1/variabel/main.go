@@ -41,7 +41,7 @@ func main() {
 
 	fmt.Println("\n===== Setelah Menghapus Budi =====")
 
-	// Menampilkan seluruh isi map
+	// Menampilkan isi map
 	for nama, nilai := range skor {
 		fmt.Printf("%s : %d\n", nama, nilai)
 	}
