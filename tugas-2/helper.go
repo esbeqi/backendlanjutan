@@ -89,8 +89,8 @@ func parseListQuery(c *fiber.Ctx) ListQuery {
 	}
 
 	// Maksimal limit
-	if q.Limit > 100 {
-		q.Limit = 100
+	if q.Limit > 50 {
+		q.Limit = 50
 	}
 
 	// Sort hanya boleh berdasarkan whitelist
