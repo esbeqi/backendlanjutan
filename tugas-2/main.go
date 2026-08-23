@@ -42,6 +42,10 @@ func main() {
 
 	s.Get("/", listStudents)
 	s.Get("/:id", getStudent)
+	s.Post("/", createStudent)
+	s.Put("/:id", replaceStudent)
+	s.Patch("/:id", patchStudent)
+	s.Delete("/:id", deleteStudent)
 
 	app.Use(func(c *fiber.Ctx) error {
 		return fail(c, fiber.StatusNotFound,
