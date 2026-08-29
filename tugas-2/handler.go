@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+
+	"api-students/app/model"
 )
 
 // Penyimpanan sementara di memori
-var students []Student
+var students []model.Student
 var nextID = 1
 
 // Mencari index student berdasarkan ID
@@ -24,7 +26,7 @@ func findStudentIndex(id int) int {
 }
 
 // Mengambil student berdasarkan ID
-func findStudent(id int) (*Student, int) {
+func findStudent(id int) (*model.Student, int) {
 	index := findStudentIndex(id)
 
 	if index == -1 {
@@ -45,7 +47,7 @@ func nimExists(nim string, exceptID int) bool {
 }
 
 // Mengecek apakah keyword terdapat pada nama mahasiswa
-func matchSearch(s Student, keyword string) bool {
+func matchSearch(s model.Student, keyword string) bool {
 	keyword = strings.ToLower(keyword)
 
 	return strings.Contains(strings.ToLower(s.Name), keyword)
@@ -67,7 +69,7 @@ func listStudents(c *fiber.Ctx) error {
 	q := parseListQuery(c)
 
 	// Filter data
-	result := []Student{}
+	result := []model.Student{}
 
 	for _, s := range students {
 
@@ -131,7 +133,7 @@ func listStudents(c *fiber.Ctx) error {
 		c,
 		"daftar mahasiswa berhasil diambil",
 		result[start:end],
-		&Meta{
+		&model.Meta{
 			Page:       q.Page,
 			Limit:      q.Limit,
 			Total:      total,
@@ -160,7 +162,7 @@ func getStudent(c *fiber.Ctx) error {
 
 // POST /students
 func createStudent(c *fiber.Ctx) error {
-	var req CreateStudentRequest
+	var req model.CreateStudentRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return fail(c, fiber.StatusBadRequest, "body request tidak valid")
@@ -174,7 +176,7 @@ func createStudent(c *fiber.Ctx) error {
 		return fail(c, fiber.StatusConflict, "NIM sudah digunakan")
 	}
 
-	student := Student{
+	student := model.Student{
 		ID:       nextID,
 		NIM:      req.NIM,
 		Name:     req.Name,
@@ -207,7 +209,7 @@ func replaceStudent(c *fiber.Ctx) error {
 		return fail(c, fiber.StatusNotFound, "mahasiswa tidak ditemukan")
 	}
 
-	var req ReplaceStudentRequest
+	var req model.ReplaceStudentRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return fail(c, fiber.StatusBadRequest, "body request tidak valid")
@@ -241,7 +243,7 @@ func patchStudent(c *fiber.Ctx) error {
 		return fail(c, fiber.StatusNotFound, "mahasiswa tidak ditemukan")
 	}
 
-	var req PatchStudentRequest
+	var req model.PatchStudentRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return fail(c, fiber.StatusBadRequest, "body request tidak valid")

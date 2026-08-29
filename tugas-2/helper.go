@@ -5,11 +5,13 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+
+	"api-students/app/model"
 )
 
 // Response 200 OK
 func ok(c *fiber.Ctx, message string, data any) error {
-	return c.Status(fiber.StatusOK).JSON(WebResponse{
+	return c.Status(fiber.StatusOK).JSON(model.WebResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -17,8 +19,8 @@ func ok(c *fiber.Ctx, message string, data any) error {
 }
 
 // Response 200 OK untuk data list + pagination
-func okList(c *fiber.Ctx, message string, data any, meta *Meta) error {
-	return c.Status(fiber.StatusOK).JSON(WebResponse{
+func okList(c *fiber.Ctx, message string, data any, meta *model.Meta) error {
+	return c.Status(fiber.StatusOK).JSON(model.WebResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -30,7 +32,7 @@ func okList(c *fiber.Ctx, message string, data any, meta *Meta) error {
 func created(c *fiber.Ctx, message string, data any, location string) error {
 	c.Set("Location", location)
 
-	return c.Status(fiber.StatusCreated).JSON(WebResponse{
+	return c.Status(fiber.StatusCreated).JSON(model.WebResponse{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -44,7 +46,7 @@ func noContent(c *fiber.Ctx) error {
 
 // Response gagal biasa
 func fail(c *fiber.Ctx, status int, message string) error {
-	return c.Status(status).JSON(WebResponse{
+	return c.Status(status).JSON(model.WebResponse{
 		Success: false,
 		Message: message,
 	})
@@ -52,7 +54,7 @@ func fail(c *fiber.Ctx, status int, message string) error {
 
 // Response validasi
 func failValidation(c *fiber.Ctx, errs map[string]string) error {
-	return c.Status(fiber.StatusUnprocessableEntity).JSON(WebResponse{
+	return c.Status(fiber.StatusUnprocessableEntity).JSON(model.WebResponse{
 		Success: false,
 		Message: "validasi gagal",
 		Errors:  errs,
@@ -69,8 +71,8 @@ var allowedSort = map[string]bool{
 }
 
 // Membaca query string endpoint GET /students
-func parseListQuery(c *fiber.Ctx) ListQuery {
-	q := ListQuery{
+func parseListQuery(c *fiber.Ctx) model.ListQuery {
+	q := model.ListQuery{
 		Page:   c.QueryInt("page", 1),
 		Limit:  c.QueryInt("limit", 10),
 		Search: strings.TrimSpace(c.Query("search")),

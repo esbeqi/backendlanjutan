@@ -1,11 +1,14 @@
-package main
+package model
+
+import "time"
 
 type Student struct {
-	ID       int    `json:"id"`
-	NIM      string `json:"nim"`
-	Name     string `json:"name"`
-	Grade    int    `json:"grade"`
-	IsActive bool   `json:"is_active"`
+	ID        int       `json:"id"`
+	NIM       string    `json:"nim"`
+	Name      string    `json:"name"`
+	Grade     int       `json:"grade"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Digunakan saat POST /students
@@ -59,4 +62,9 @@ type ListQuery struct {
 	Sort     string
 	Order    string
 	IsActive *bool
+}
+
+// Offset menghitung jumlah data yang dilewati.
+func (q ListQuery) Offset() int {
+	return (q.Page - 1) * q.Limit
 }
