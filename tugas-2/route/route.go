@@ -29,7 +29,11 @@ func Register(
 	auth := api.Group("/auth")
 
 	auth.Post("/register", authService.Register)
-	auth.Post("/login", authService.Login)
+	auth.Post(
+		"/login",
+		middleware.LoginRateLimit,
+		authService.Login,
+	)
 	auth.Post("/refresh", authService.Refresh)
 	auth.Post("/logout", authService.Logout)
 
