@@ -1,6 +1,12 @@
 package helper
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 const BcryptCost = 12
 
@@ -18,4 +24,19 @@ func VerifyPassword(hash, password string) bool {
 		[]byte(hash),
 		[]byte(password),
 	) == nil
+}
+
+func RandomToken() (string, error) {
+	b := make([]byte, 32)
+
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(b), nil
+}
+
+func SHA256Hex(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
 }

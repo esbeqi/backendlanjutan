@@ -20,6 +20,8 @@ func NewApp(
 	logger *slog.Logger,
 	pool *pgxpool.Pool,
 	studentService *service.StudentService,
+	authService *service.AuthService,
+	jwtManager *helper.JWTManager,
 ) *fiber.App {
 
 	app := fiber.New(fiber.Config{
@@ -31,7 +33,13 @@ func NewApp(
 	middleware.Register(app, logger)
 
 	// Route
-	route.Register(app, pool, studentService)
+	route.Register(
+		app,
+		pool,
+		studentService,
+		authService,
+		jwtManager,
+	)
 
 	// Fallback endpoint
 	app.Use(func(c *fiber.Ctx) error {

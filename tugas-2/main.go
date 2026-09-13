@@ -12,6 +12,7 @@ import (
 	"api-students/app/service"
 	"api-students/config"
 	"api-students/database"
+	"api-students/helper"
 )
 
 func main() {
@@ -32,14 +33,34 @@ func main() {
 	defer pool.Close()
 
 	// 3. Repository -> Service
+
+	// Student
 	studentRepository := repository.NewStudentRepository(pool)
 	studentService := service.NewStudentService(studentRepository)
+
+	// Authentication
+	userRepository := repository.NewUserRepository(pool)
+	tokenRepository := repository.NewTokenRepository(pool)
+
+	jwtManager := helper.NewJWTManager(
+		config.GetEnv("JWT_SECRET", ""),
+		config.GetEnv("JWT_ISSUER", "api-students"),
+		15*time.Minute,
+	)
+
+	authService := service.NewAuthService(
+		userRepository,
+		tokenRepository,
+		jwtManager,
+	)
 
 	// 4. Buat aplikasi
 	app := config.NewApp(
 		logger,
 		pool,
 		studentService,
+		authService,
+		jwtManager,
 	)
 
 	port := config.GetEnv("APP_PORT", "3000")

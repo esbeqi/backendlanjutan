@@ -16,15 +16,34 @@ func Register(
 	app *fiber.App,
 	pool *pgxpool.Pool,
 	studentService *service.StudentService,
+	authService *service.AuthService,
+	jwtManager *helper.JWTManager,
 ) {
 
 	api := app.Group("/api/v1")
 
+	// Public endpoint
 	api.Get("/health", healthCheck(pool))
 
+	// Authentication
+	auth := api.Group("/auth")
+
+	auth.Post("/register", authService.Register)
+	auth.Post("/login", authService.Login)
+	auth.Post("/refresh", authService.Refresh)
+	auth.Post("/logout", authService.Logout)
+
+	auth.Get(
+		"/me",
+		middleware.RequireAuth(jwtManager),
+		authService.Me,
+	)
+
+	// Protected student endpoints
 	students := api.Group(
 		"/students",
 		middleware.RequireJSON,
+		middleware.RequireAuth(jwtManager),
 	)
 
 	students.Get("/", studentService.List)
