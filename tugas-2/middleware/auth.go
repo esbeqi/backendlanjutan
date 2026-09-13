@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -35,10 +36,19 @@ func RequireAuth(jwtManager *helper.JWTManager) fiber.Handler {
 		authUser, err := jwtManager.ParseAccessToken(parts[1])
 		if err != nil {
 			c.Set("WWW-Authenticate", `Bearer`)
+
+			if errors.Is(err, helper.ErrExpiredToken) {
+				return helper.Fail(
+					c,
+					fiber.StatusUnauthorized,
+					"access token kedaluwarsa",
+				)
+			}
+
 			return helper.Fail(
 				c,
 				fiber.StatusUnauthorized,
-				"access token tidak valid atau sudah kedaluwarsa",
+				"access token tidak valid",
 			)
 		}
 

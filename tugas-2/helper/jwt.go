@@ -10,6 +10,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var ErrExpiredToken = errors.New("access token kedaluwarsa")
+
 type JWTManager struct {
 	Secret    []byte
 	Issuer    string
@@ -57,6 +59,10 @@ func (m *JWTManager) ParseAccessToken(tokenString string) (model.AuthUser, error
 	)
 
 	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return model.AuthUser{}, ErrExpiredToken
+		}
+
 		return model.AuthUser{}, err
 	}
 
