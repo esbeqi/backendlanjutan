@@ -23,6 +23,7 @@ var (
 type UserRepository interface {
 	FindAll(ctx context.Context, q model.ListQuery) ([]model.User, int, error)
 	FindByID(ctx context.Context, id int) (model.User, error)
+	FindByUsername(ctx context.Context, username string) (model.User, error)
 	Create(ctx context.Context, u model.User) (model.User, error)
 	Update(ctx context.Context, u model.User) (model.User, error)
 	Delete(ctx context.Context, id int) error
@@ -72,7 +73,12 @@ func (r *userPostgresRepository) FindAll(
 
 	// 1) Hitung total sebelum dipenggal, untuk keperluan meta.
 	var total int
-	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM users"+where, args...).Scan(&total)
+	err := r.pool.QueryRow(
+		ctx,
+		"SELECT COUNT(*) FROM users"+where,
+		args...,
+	).Scan(&total)
+
 	if err != nil {
 		return nil, 0, fmt.Errorf("menghitung user: %w", err)
 	}
@@ -84,7 +90,7 @@ func (r *userPostgresRepository) FindAll(
 	}
 
 	sqlText := fmt.Sprintf(
-		`SELECT id, username, email, password, is_active, created_at
+		`SELECT id, username, email, password, role, is_active, created_at
 		 FROM users%s
 		 ORDER BY %s %s
 		 LIMIT $%d OFFSET $%d`,
@@ -109,6 +115,7 @@ func (r *userPostgresRepository) FindAll(
 			&u.Username,
 			&u.Email,
 			&u.Password,
+			&u.Role,
 			&u.IsActive,
 			&u.CreatedAt,
 		); err != nil {
@@ -132,7 +139,7 @@ func (r *userPostgresRepository) FindByID(
 
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT id, username, email, password, is_active, created_at
+		`SELECT id, username, email, password, role, is_active, created_at
 		FROM users WHERE id = $1`,
 		id,
 	).Scan(
@@ -140,6 +147,7 @@ func (r *userPostgresRepository) FindByID(
 		&u.Username,
 		&u.Email,
 		&u.Password,
+		&u.Role,
 		&u.IsActive,
 		&u.CreatedAt,
 	)
@@ -149,6 +157,42 @@ func (r *userPostgresRepository) FindByID(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.User{}, ErrNotFound
 		}
+
+		return model.User{}, fmt.Errorf("mengambil user: %w", err)
+	}
+
+	return u, nil
+}
+
+// FindByUsername dipakai saat login.
+// Pencocokan tidak membedakan huruf besar dan kecil,
+// sama seperti unique index pada username.
+func (r *userPostgresRepository) FindByUsername(
+	ctx context.Context, username string,
+) (model.User, error) {
+	var u model.User
+
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT id, username, email, password, role, is_active, created_at
+		FROM users
+		WHERE LOWER(username) = LOWER($1)`,
+		username,
+	).Scan(
+		&u.ID,
+		&u.Username,
+		&u.Email,
+		&u.Password,
+		&u.Role,
+		&u.IsActive,
+		&u.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.User{}, ErrNotFound
+		}
+
 		return model.User{}, fmt.Errorf("mengambil user: %w", err)
 	}
 
@@ -162,12 +206,13 @@ func (r *userPostgresRepository) Create(
 	// langsung ikut kembali, tanpa perlu query kedua.
 	err := r.pool.QueryRow(
 		ctx,
-		`INSERT INTO users (username, email, password, is_active)
-		VALUES ($1, $2, $3, $4)
+		`INSERT INTO users (username, email, password, role, is_active)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at`,
 		u.Username,
 		u.Email,
 		u.Password,
+		u.Role,
 		u.IsActive,
 	).Scan(&u.ID, &u.CreatedAt)
 
@@ -175,6 +220,7 @@ func (r *userPostgresRepository) Create(
 		if isUniqueViolation(err) {
 			return model.User{}, ErrDuplicate
 		}
+
 		return model.User{}, fmt.Errorf("menyimpan user: %w", err)
 	}
 
@@ -189,11 +235,12 @@ func (r *userPostgresRepository) Update(
 	err := r.pool.QueryRow(
 		ctx,
 		`UPDATE users
-		SET username = $1, email = $2, is_active = $3
-		WHERE id = $4
-		RETURNING id, username, email, password, is_active, created_at`,
+		SET username = $1, email = $2, role = $3, is_active = $4
+		WHERE id = $5
+		RETURNING id, username, email, password, role, is_active, created_at`,
 		u.Username,
 		u.Email,
+		u.Role,
 		u.IsActive,
 		u.ID,
 	).Scan(
@@ -201,6 +248,7 @@ func (r *userPostgresRepository) Update(
 		&u.Username,
 		&u.Email,
 		&u.Password,
+		&u.Role,
 		&u.IsActive,
 		&u.CreatedAt,
 	)
@@ -222,7 +270,12 @@ func (r *userPostgresRepository) Update(
 }
 
 func (r *userPostgresRepository) Delete(ctx context.Context, id int) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	tag, err := r.pool.Exec(
+		ctx,
+		`DELETE FROM users WHERE id = $1`,
+		id,
+	)
+
 	if err != nil {
 		return fmt.Errorf("menghapus user: %w", err)
 	}
