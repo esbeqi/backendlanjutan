@@ -62,13 +62,35 @@ func main() {
 	// 4. Repository -> Service
 	userRepository := repository.NewUserRepository(pool)
 	tokenRepository := repository.NewTokenRepository(pool)
+	roleRepository := repository.NewRoleRepository(pool)
 
-	userService := service.NewUserService(userRepository)
+	// Pemetaan role ke permission dibaca SEKALI saat aplikasi menyala.
+	rawPermissions, err := roleRepository.LoadPermissions(context.Background())
+	if err != nil {
+		logger.Error(
+			"gagal memuat permission",
+			slog.String("error", err.Error()),
+		)
+		os.Exit(1)
+	}
+
+	permissions := helper.NewPermissionSet(rawPermissions)
+
+	logger.Info(
+		"permission dimuat",
+		slog.Any("roles", permissions.KnownRoles()),
+	)
+
+	userService := service.NewUserService(
+		userRepository,
+		permissions,
+	)
 
 	authService := service.NewAuthService(
 		userRepository,
 		tokenRepository,
 		jwtManager,
+		permissions,
 		time.Duration(
 			config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7),
 		)*24*time.Hour,
@@ -80,6 +102,7 @@ func main() {
 		route.Dependencies{
 			Pool:        pool,
 			JWT:         jwtManager,
+			Permissions: permissions,
 			UserService: userService,
 			AuthService: authService,
 		},

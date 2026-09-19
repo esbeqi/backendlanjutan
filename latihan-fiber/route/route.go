@@ -15,6 +15,7 @@ import (
 type Dependencies struct {
 	Pool        *pgxpool.Pool
 	JWT         *helper.JWTManager
+	Permissions *helper.PermissionSet
 	UserService *service.UserService
 	AuthService *service.AuthService
 }
@@ -42,19 +43,44 @@ func Register(app *fiber.App, deps Dependencies) {
 		deps.AuthService.Me,
 	)
 
-	// --- wajib membawa access token ---
+	// --- wajib login, hak akses diperiksa per endpoint ---
 	users := api.Group(
 		"/users",
 		middleware.RequireJSON,
 		middleware.RequireAuth(deps.JWT),
 	)
 
-	users.Get("/", deps.UserService.List)
+	perms := deps.Permissions
+
+	// Hak dapat diputuskan tanpa melihat data -> middleware.
+	users.Get(
+		"/",
+		middleware.RequirePermission(perms, "user:list"),
+		deps.UserService.List,
+	)
+
+	users.Post(
+		"/",
+		middleware.RequirePermission(perms, "user:update:any"),
+		deps.UserService.Create,
+	)
+
+	users.Delete(
+		"/:id",
+		middleware.RequirePermission(perms, "user:delete"),
+		deps.UserService.Delete,
+	)
+
+	users.Patch(
+		"/:id/role",
+		middleware.RequirePermission(perms, "role:assign"),
+		deps.UserService.AssignRole,
+	)
+
+	// Hak bergantung pada kepemilikan data -> diperiksa di service.
 	users.Get("/:id", deps.UserService.Get)
-	users.Post("/", deps.UserService.Create)
 	users.Put("/:id", deps.UserService.Replace)
 	users.Patch("/:id", deps.UserService.Patch)
-	users.Delete("/:id", deps.UserService.Delete)
 }
 
 // healthCheck melaporkan kondisi layanan beserta databasenya.
