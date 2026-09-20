@@ -22,6 +22,7 @@ func NewApp(
 	studentService *service.StudentService,
 	authService *service.AuthService,
 	jwtManager *helper.JWTManager,
+	perms *helper.PermissionSet,
 ) *fiber.App {
 
 	app := fiber.New(fiber.Config{
@@ -39,6 +40,7 @@ func NewApp(
 		studentService,
 		authService,
 		jwtManager,
+		perms,
 	)
 
 	// Fallback endpoint

@@ -32,6 +32,8 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 		err := c.Next()
 
 		requestID, _ := c.Locals("requestid").(string)
+		userID, _ := c.Locals("user_id").(int)
+		role, _ := c.Locals("role").(string)
 
 		logger.Info(
 			"http_request",
@@ -41,6 +43,8 @@ func RequestLogger(logger *slog.Logger) fiber.Handler {
 			slog.Int("status", c.Response().StatusCode()),
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
+			slog.Int("user_id", userID),
+			slog.String("role", role),
 		)
 
 		return err

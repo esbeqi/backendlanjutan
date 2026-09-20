@@ -18,6 +18,7 @@ func Register(
 	studentService *service.StudentService,
 	authService *service.AuthService,
 	jwtManager *helper.JWTManager,
+	perms *helper.PermissionSet,
 ) {
 
 	api := app.Group("/api/v1")
@@ -48,14 +49,36 @@ func Register(
 		"/students",
 		middleware.RequireJSON,
 		middleware.RequireAuth(jwtManager),
+		middleware.ProvidePermissionSet(perms),
 	)
 
-	students.Get("/", studentService.List)
+	// Memerlukan permission student:list
+	students.Get(
+		"/",
+		middleware.RequirePermission(perms, "student:list"),
+		studentService.List,
+	)
+
+	// Ownership / student:read:any ditangani di service
 	students.Get("/:id", studentService.Get)
-	students.Post("/", studentService.Create)
+
+	// Memerlukan permission student:create
+	students.Post(
+		"/",
+		middleware.RequirePermission(perms, "student:create"),
+		studentService.Create,
+	)
+
+	// Ownership / student:update:any ditangani di service
 	students.Put("/:id", studentService.Replace)
 	students.Patch("/:id", studentService.Patch)
-	students.Delete("/:id", studentService.Delete)
+
+	// Memerlukan permission student:delete
+	students.Delete(
+		"/:id",
+		middleware.RequirePermission(perms, "student:delete"),
+		studentService.Delete,
+	)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {

@@ -40,7 +40,7 @@ func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model
 	var s model.Student
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, nim, name, grade, is_active, created_at
+		SELECT id, nim, name, grade, is_active, created_at, owner_id
 		FROM students
 		WHERE id = $1
 	`, id).Scan(
@@ -50,6 +50,7 @@ func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model
 		&s.Grade,
 		&s.IsActive,
 		&s.CreatedAt,
+		&s.OwnerID,
 	)
 
 	if err != nil {
@@ -84,14 +85,15 @@ func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student)
 
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO students
-		(nim,name,grade,is_active)
-		VALUES ($1,$2,$3,$4)
-		RETURNING id,created_at
+		(nim, name, grade, is_active, owner_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at
 	`,
 		s.NIM,
 		s.Name,
 		s.Grade,
 		s.IsActive,
+		s.OwnerID,
 	).Scan(
 		&s.ID,
 		&s.CreatedAt,
@@ -214,7 +216,8 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 			name,
 			grade,
 			is_active,
-			created_at
+			created_at,
+			owner_id
 		FROM students
 		%s
 		ORDER BY %s %s
@@ -247,6 +250,7 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 			&s.Grade,
 			&s.IsActive,
 			&s.CreatedAt,
+			&s.OwnerID,
 		); err != nil {
 			return nil, 0, err
 		}

@@ -76,6 +76,34 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 		)
 	}
 
+	currentUser := model.AuthUser{
+		UserID:   c.Locals("user_id").(int),
+		Username: c.Locals("username").(string),
+		Role:     c.Locals("role").(string),
+	}
+
+	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
+	if !ok || perms == nil {
+		return helper.Fail(
+			c,
+			fiber.StatusInternalServerError,
+			"permission set tidak tersedia",
+		)
+	}
+
+	if !CanAccessStudent(
+		currentUser,
+		student.OwnerID,
+		perms,
+		"student:read:any",
+	) {
+		return helper.Fail(
+			c,
+			fiber.StatusForbidden,
+			"tidak memiliki akses ke mahasiswa ini",
+		)
+	}
+
 	return helper.Success(
 		c,
 		fiber.StatusOK,
@@ -107,11 +135,21 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 		return helper.FailValidation(c, errs)
 	}
 
+	userID, ok := c.Locals("user_id").(int)
+	if !ok || userID <= 0 {
+		return helper.Fail(
+			c,
+			fiber.StatusUnauthorized,
+			"identitas user tidak ditemukan",
+		)
+	}
+
 	newStudent, err := s.repo.Create(ctx, model.Student{
 		NIM:      req.NIM,
 		Name:     req.Name,
 		Grade:    req.Grade,
 		IsActive: true,
+		OwnerID:  userID,
 	})
 
 	if err != nil {
@@ -145,6 +183,43 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		)
 	}
 
+	current, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return translateError(
+			c,
+			err,
+			"gagal mengambil data mahasiswa",
+		)
+	}
+
+	currentUser := model.AuthUser{
+		UserID:   c.Locals("user_id").(int),
+		Username: c.Locals("username").(string),
+		Role:     c.Locals("role").(string),
+	}
+
+	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
+	if !ok || perms == nil {
+		return helper.Fail(
+			c,
+			fiber.StatusInternalServerError,
+			"permission set tidak tersedia",
+		)
+	}
+
+	if !CanAccessStudent(
+		currentUser,
+		current.OwnerID,
+		perms,
+		"student:update:any",
+	) {
+		return helper.Fail(
+			c,
+			fiber.StatusForbidden,
+			"tidak memiliki akses untuk memperbarui mahasiswa ini",
+		)
+	}
+
 	var req model.ReplaceStudentRequest
 
 	if err := c.BodyParser(&req); err != nil {
@@ -168,6 +243,7 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		Name:     req.Name,
 		Grade:    req.Grade,
 		IsActive: req.IsActive,
+		OwnerID:  current.OwnerID,
 	})
 
 	if err != nil {
@@ -201,6 +277,43 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 		)
 	}
 
+	current, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return translateError(
+			c,
+			err,
+			"gagal mengambil data mahasiswa",
+		)
+	}
+
+	currentUser := model.AuthUser{
+		UserID:   c.Locals("user_id").(int),
+		Username: c.Locals("username").(string),
+		Role:     c.Locals("role").(string),
+	}
+
+	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
+	if !ok || perms == nil {
+		return helper.Fail(
+			c,
+			fiber.StatusInternalServerError,
+			"permission set tidak tersedia",
+		)
+	}
+
+	if !CanAccessStudent(
+		currentUser,
+		current.OwnerID,
+		perms,
+		"student:update:any",
+	) {
+		return helper.Fail(
+			c,
+			fiber.StatusForbidden,
+			"tidak memiliki akses untuk memperbarui mahasiswa ini",
+		)
+	}
+
 	var req model.PatchStudentRequest
 
 	if err := c.BodyParser(&req); err != nil {
@@ -216,15 +329,6 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 			c,
 			fiber.StatusBadRequest,
 			"tidak ada field yang diubah",
-		)
-	}
-
-	current, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return translateError(
-			c,
-			err,
-			"gagal mengambil data mahasiswa",
 		)
 	}
 

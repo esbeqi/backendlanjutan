@@ -54,6 +54,20 @@ func main() {
 		jwtManager,
 	)
 
+	// Role & Permission
+	roleRepository := repository.NewRoleRepository(pool)
+
+	rawPermissions, err := roleRepository.FindPermissions(context.Background())
+	if err != nil {
+		logger.Error(
+			"gagal memuat permission",
+			slog.String("error", err.Error()),
+		)
+		os.Exit(1)
+	}
+
+	perms := helper.NewPermissionSet(rawPermissions)
+
 	// 4. Buat aplikasi
 	app := config.NewApp(
 		logger,
@@ -61,6 +75,7 @@ func main() {
 		studentService,
 		authService,
 		jwtManager,
+		perms,
 	)
 
 	port := config.GetEnv("APP_PORT", "3000")
