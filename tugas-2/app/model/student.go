@@ -62,6 +62,32 @@ type ListQuery struct {
 	Sort     string
 	Order    string
 	IsActive *bool
+	Cursor   string
+}
+
+// Menampung cursor hasil decode.
+// Cursor menggunakan pasangan (created_at, id)
+// sebagai pengurut yang unik.
+type Cursor struct {
+	CreatedAt time.Time
+	ID        int
+}
+
+// Query khusus cursor pagination.
+type CursorQuery struct {
+	Limit           int
+	Search          string
+	IsActive        *bool
+	Cursor          string
+	CursorCreatedAt *time.Time
+	CursorID        *int
+}
+
+// Metadata response cursor pagination.
+type CursorMeta struct {
+	Limit      int    `json:"limit"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore    bool   `json:"has_more"`
 }
 
 // Offset menghitung jumlah data yang dilewati.

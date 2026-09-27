@@ -20,6 +20,7 @@ var (
 
 type StudentRepository interface {
 	FindAll(ctx context.Context, q model.ListQuery) ([]model.Student, int, error)
+	FindAllCursor(ctx context.Context, q model.CursorQuery) ([]model.Student, *model.Cursor, error)
 	FindByID(ctx context.Context, id int) (model.Student, error)
 	Create(ctx context.Context, s model.Student) (model.Student, error)
 	Update(ctx context.Context, s model.Student) (model.Student, error)
@@ -36,11 +37,23 @@ func NewStudentRepository(pool *pgxpool.Pool) StudentRepository {
 	}
 }
 
-func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model.Student, error) {
+// FindByID mengambil satu data mahasiswa berdasarkan ID.
+func (r *studentPostgresRepository) FindByID(
+	ctx context.Context,
+	id int,
+) (model.Student, error) {
+
 	var s model.Student
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, nim, name, grade, is_active, created_at, owner_id
+		SELECT
+			id,
+			nim,
+			name,
+			grade,
+			is_active,
+			created_at,
+			owner_id
 		FROM students
 		WHERE id = $1
 	`, id).Scan(
@@ -57,16 +70,22 @@ func (r *studentPostgresRepository) FindByID(ctx context.Context, id int) (model
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Student{}, ErrNotFound
 		}
+
 		return model.Student{}, err
 	}
 
 	return s, nil
 }
 
-func (r *studentPostgresRepository) Delete(ctx context.Context, id int) error {
+// Delete menghapus mahasiswa berdasarkan ID.
+func (r *studentPostgresRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
 
-	cmd, err := r.pool.Exec(ctx,
-		`DELETE FROM students WHERE id=$1`,
+	cmd, err := r.pool.Exec(
+		ctx,
+		`DELETE FROM students WHERE id = $1`,
 		id,
 	)
 
@@ -81,11 +100,15 @@ func (r *studentPostgresRepository) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student) (model.Student, error) {
+// Create menambahkan data mahasiswa baru.
+func (r *studentPostgresRepository) Create(
+	ctx context.Context,
+	s model.Student,
+) (model.Student, error) {
 
 	err := r.pool.QueryRow(ctx, `
 		INSERT INTO students
-		(nim, name, grade, is_active, owner_id)
+			(nim, name, grade, is_active, owner_id)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at
 	`,
@@ -100,12 +123,10 @@ func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student)
 	)
 
 	if err != nil {
-
 		var pgErr *pgconn.PgError
 
 		if errors.As(err, &pgErr) &&
 			pgErr.Code == "23505" {
-
 			return model.Student{}, ErrDuplicate
 		}
 
@@ -115,16 +136,20 @@ func (r *studentPostgresRepository) Create(ctx context.Context, s model.Student)
 	return s, nil
 }
 
-func (r *studentPostgresRepository) Update(ctx context.Context, s model.Student) (model.Student, error) {
+// Update memperbarui data mahasiswa.
+func (r *studentPostgresRepository) Update(
+	ctx context.Context,
+	s model.Student,
+) (model.Student, error) {
 
 	cmd, err := r.pool.Exec(ctx, `
 		UPDATE students
 		SET
-			nim=$1,
-			name=$2,
-			grade=$3,
-			is_active=$4
-		WHERE id=$5
+			nim = $1,
+			name = $2,
+			grade = $3,
+			is_active = $4
+		WHERE id = $5
 	`,
 		s.NIM,
 		s.Name,
@@ -134,12 +159,10 @@ func (r *studentPostgresRepository) Update(ctx context.Context, s model.Student)
 	)
 
 	if err != nil {
-
 		var pgErr *pgconn.PgError
 
 		if errors.As(err, &pgErr) &&
 			pgErr.Code == "23505" {
-
 			return model.Student{}, ErrDuplicate
 		}
 
@@ -153,7 +176,11 @@ func (r *studentPostgresRepository) Update(ctx context.Context, s model.Student)
 	return r.FindByID(ctx, s.ID)
 }
 
-func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQuery) ([]model.Student, int, error) {
+// FindAll digunakan untuk pagination berbasis offset.
+func (r *studentPostgresRepository) FindAll(
+	ctx context.Context,
+	q model.ListQuery,
+) ([]model.Student, int, error) {
 
 	allowedSort := map[string]string{
 		"id":         "id",
@@ -169,6 +196,7 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 	}
 
 	order := "ASC"
+
 	if strings.ToLower(q.Order) == "desc" {
 		order = "DESC"
 	}
@@ -178,20 +206,40 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 	arg := 1
 
 	if q.Search != "" {
-		where = append(where, fmt.Sprintf("name ILIKE $%d", arg))
-		args = append(args, "%"+q.Search+"%")
+		where = append(
+			where,
+			fmt.Sprintf("name ILIKE $%d", arg),
+		)
+
+		args = append(
+			args,
+			"%"+q.Search+"%",
+		)
+
 		arg++
 	}
 
 	if q.IsActive != nil {
-		where = append(where, fmt.Sprintf("is_active = $%d", arg))
-		args = append(args, *q.IsActive)
+		where = append(
+			where,
+			fmt.Sprintf("is_active = $%d", arg),
+		)
+
+		args = append(
+			args,
+			*q.IsActive,
+		)
+
 		arg++
 	}
 
 	whereSQL := ""
+
 	if len(where) > 0 {
-		whereSQL = "WHERE " + strings.Join(where, " AND ")
+		whereSQL = "WHERE " + strings.Join(
+			where,
+			" AND ",
+		)
 	}
 
 	var total int
@@ -202,12 +250,21 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 		%s
 	`, whereSQL)
 
-	if err := r.pool.QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(
+		ctx,
+		countSQL,
+		args...,
+	).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	queryArgs := append([]any{}, args...)
-	queryArgs = append(queryArgs, q.Limit, q.Offset())
+
+	queryArgs = append(
+		queryArgs,
+		q.Limit,
+		q.Offset(),
+	)
 
 	sql := fmt.Sprintf(`
 		SELECT
@@ -231,16 +288,21 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 		arg+1,
 	)
 
-	rows, err := r.pool.Query(ctx, sql, queryArgs...)
+	rows, err := r.pool.Query(
+		ctx,
+		sql,
+		queryArgs...,
+	)
+
 	if err != nil {
 		return nil, 0, err
 	}
+
 	defer rows.Close()
 
 	var students []model.Student
 
 	for rows.Next() {
-
 		var s model.Student
 
 		if err := rows.Scan(
@@ -263,4 +325,170 @@ func (r *studentPostgresRepository) FindAll(ctx context.Context, q model.ListQue
 	}
 
 	return students, total, nil
+}
+
+// FindAllCursor digunakan untuk pagination berbasis cursor.
+//
+// Urutan:
+// created_at ASC, id ASC
+//
+// created_at menjadi pengurut utama.
+// id menjadi tie-breaker sehingga pasangan
+// (created_at, id) menentukan posisi data secara unik.
+func (r *studentPostgresRepository) FindAllCursor(
+	ctx context.Context,
+	q model.CursorQuery,
+) ([]model.Student, *model.Cursor, error) {
+
+	where := []string{}
+	args := []any{}
+	arg := 1
+
+	if q.Search != "" {
+		where = append(
+			where,
+			fmt.Sprintf("name ILIKE $%d", arg),
+		)
+
+		args = append(
+			args,
+			"%"+q.Search+"%",
+		)
+
+		arg++
+	}
+
+	if q.IsActive != nil {
+		where = append(
+			where,
+			fmt.Sprintf("is_active = $%d", arg),
+		)
+
+		args = append(
+			args,
+			*q.IsActive,
+		)
+
+		arg++
+	}
+
+	// Jika cursor diberikan, ambil data
+	// setelah pasangan (created_at, id).
+	if q.CursorCreatedAt != nil &&
+		q.CursorID != nil {
+
+		where = append(
+			where,
+			fmt.Sprintf(
+				"(created_at, id) > ($%d, $%d)",
+				arg,
+				arg+1,
+			),
+		)
+
+		args = append(
+			args,
+			*q.CursorCreatedAt,
+			*q.CursorID,
+		)
+
+		arg += 2
+	}
+
+	whereSQL := ""
+
+	if len(where) > 0 {
+		whereSQL = "WHERE " + strings.Join(
+			where,
+			" AND ",
+		)
+	}
+
+	// Ambil satu data tambahan untuk mengetahui
+	// apakah masih ada halaman berikutnya.
+	queryArgs := append([]any{}, args...)
+
+	queryArgs = append(
+		queryArgs,
+		q.Limit+1,
+	)
+
+	sql := fmt.Sprintf(`
+		SELECT
+			id,
+			nim,
+			name,
+			grade,
+			is_active,
+			created_at,
+			owner_id
+		FROM students
+		%s
+		ORDER BY created_at ASC, id ASC
+		LIMIT $%d
+	`,
+		whereSQL,
+		arg,
+	)
+
+	rows, err := r.pool.Query(
+		ctx,
+		sql,
+		queryArgs...,
+	)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer rows.Close()
+
+	students := make(
+		[]model.Student,
+		0,
+		q.Limit+1,
+	)
+
+	for rows.Next() {
+		var s model.Student
+
+		if err := rows.Scan(
+			&s.ID,
+			&s.NIM,
+			&s.Name,
+			&s.Grade,
+			&s.IsActive,
+			&s.CreatedAt,
+			&s.OwnerID,
+		); err != nil {
+			return nil, nil, err
+		}
+
+		students = append(
+			students,
+			s,
+		)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	var nextCursor *model.Cursor
+
+	// Jika jumlah data melebihi limit,
+	// berarti masih ada halaman berikutnya.
+	if len(students) > q.Limit {
+
+		students = students[:q.Limit]
+
+		last := students[len(students)-1]
+
+		nextCursor = &model.Cursor{
+			CreatedAt: last.CreatedAt,
+			ID:        last.ID,
+		}
+	}
+
+	return students, nextCursor, nil
 }
