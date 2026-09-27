@@ -24,7 +24,6 @@ func NewStudentService(repo repository.StudentRepository) *StudentService {
 
 // GET /students
 func (s *StudentService) List(c *fiber.Ctx) error {
-
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -54,7 +53,6 @@ func (s *StudentService) List(c *fiber.Ctx) error {
 
 // GET /students/:id
 func (s *StudentService) Get(c *fiber.Ctx) error {
-
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -76,14 +74,17 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 		)
 	}
 
-	currentUser := model.AuthUser{
-		UserID:   c.Locals("user_id").(int),
-		Username: c.Locals("username").(string),
-		Role:     c.Locals("role").(string),
+	currentUser, ok := getAuthUser(c)
+	if !ok {
+		return helper.Fail(
+			c,
+			fiber.StatusUnauthorized,
+			"identitas user tidak ditemukan",
+		)
 	}
 
-	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
-	if !ok || perms == nil {
+	perms, ok := getPermissionSet(c)
+	if !ok {
 		return helper.Fail(
 			c,
 			fiber.StatusInternalServerError,
@@ -114,7 +115,6 @@ func (s *StudentService) Get(c *fiber.Ctx) error {
 
 // POST /students
 func (s *StudentService) Create(c *fiber.Ctx) error {
-
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -144,13 +144,16 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 		)
 	}
 
-	newStudent, err := s.repo.Create(ctx, model.Student{
-		NIM:      req.NIM,
-		Name:     req.Name,
-		Grade:    req.Grade,
-		IsActive: true,
-		OwnerID:  userID,
-	})
+	newStudent, err := s.repo.Create(
+		ctx,
+		model.Student{
+			NIM:      req.NIM,
+			Name:     req.Name,
+			Grade:    req.Grade,
+			IsActive: true,
+			OwnerID:  userID,
+		},
+	)
 
 	if err != nil {
 		return translateError(
@@ -170,7 +173,6 @@ func (s *StudentService) Create(c *fiber.Ctx) error {
 
 // PUT /students/:id
 func (s *StudentService) Replace(c *fiber.Ctx) error {
-
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -192,14 +194,17 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		)
 	}
 
-	currentUser := model.AuthUser{
-		UserID:   c.Locals("user_id").(int),
-		Username: c.Locals("username").(string),
-		Role:     c.Locals("role").(string),
+	currentUser, ok := getAuthUser(c)
+	if !ok {
+		return helper.Fail(
+			c,
+			fiber.StatusUnauthorized,
+			"identitas user tidak ditemukan",
+		)
 	}
 
-	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
-	if !ok || perms == nil {
+	perms, ok := getPermissionSet(c)
+	if !ok {
 		return helper.Fail(
 			c,
 			fiber.StatusInternalServerError,
@@ -237,14 +242,17 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 		return helper.FailValidation(c, errs)
 	}
 
-	result, err := s.repo.Update(ctx, model.Student{
-		ID:       id,
-		NIM:      req.NIM,
-		Name:     req.Name,
-		Grade:    req.Grade,
-		IsActive: req.IsActive,
-		OwnerID:  current.OwnerID,
-	})
+	result, err := s.repo.Update(
+		ctx,
+		model.Student{
+			ID:       id,
+			NIM:      req.NIM,
+			Name:     req.Name,
+			Grade:    req.Grade,
+			IsActive: req.IsActive,
+			OwnerID:  current.OwnerID,
+		},
+	)
 
 	if err != nil {
 		return translateError(
@@ -264,7 +272,6 @@ func (s *StudentService) Replace(c *fiber.Ctx) error {
 
 // PATCH /students/:id
 func (s *StudentService) Patch(c *fiber.Ctx) error {
-
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -286,14 +293,17 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 		)
 	}
 
-	currentUser := model.AuthUser{
-		UserID:   c.Locals("user_id").(int),
-		Username: c.Locals("username").(string),
-		Role:     c.Locals("role").(string),
+	currentUser, ok := getAuthUser(c)
+	if !ok {
+		return helper.Fail(
+			c,
+			fiber.StatusUnauthorized,
+			"identitas user tidak ditemukan",
+		)
 	}
 
-	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
-	if !ok || perms == nil {
+	perms, ok := getPermissionSet(c)
+	if !ok {
 		return helper.Fail(
 			c,
 			fiber.StatusInternalServerError,
@@ -356,7 +366,6 @@ func (s *StudentService) Patch(c *fiber.Ctx) error {
 
 // DELETE /students/:id
 func (s *StudentService) Delete(c *fiber.Ctx) error {
-
 	ctx, cancel := helper.RequestContext(c)
 	defer cancel()
 
@@ -380,9 +389,44 @@ func (s *StudentService) Delete(c *fiber.Ctx) error {
 	return helper.NoContent(c)
 }
 
-func translateError(c *fiber.Ctx, err error, generalMessage string) error {
-	switch {
+// getAuthUser mengambil identitas user dari middleware.
+func getAuthUser(c *fiber.Ctx) (model.AuthUser, bool) {
+	userID, ok := c.Locals("user_id").(int)
+	if !ok || userID <= 0 {
+		return model.AuthUser{}, false
+	}
 
+	username, ok := c.Locals("username").(string)
+	if !ok || strings.TrimSpace(username) == "" {
+		return model.AuthUser{}, false
+	}
+
+	role, ok := c.Locals("role").(string)
+	if !ok || strings.TrimSpace(role) == "" {
+		return model.AuthUser{}, false
+	}
+
+	return model.AuthUser{
+		UserID:   userID,
+		Username: username,
+		Role:     role,
+	}, true
+}
+
+// getPermissionSet mengambil permission set dari middleware.
+func getPermissionSet(c *fiber.Ctx) (*helper.PermissionSet, bool) {
+	perms, ok := c.Locals("permission_set").(*helper.PermissionSet)
+
+	return perms, ok && perms != nil
+}
+
+// translateError menerjemahkan error repository menjadi HTTP response.
+func translateError(
+	c *fiber.Ctx,
+	err error,
+	generalMessage string,
+) error {
+	switch {
 	case errors.Is(err, repository.ErrNotFound):
 		return helper.Fail(
 			c,

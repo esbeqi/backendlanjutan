@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -47,18 +48,26 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 		)
 	}
 
+	// Normalisasi input.
+	req.Username = strings.TrimSpace(req.Username)
+	req.Email = strings.TrimSpace(req.Email)
+
 	if errs := ValidateRegister(req); len(errs) > 0 {
 		return helper.FailValidation(c, errs)
 	}
 
 	// Pastikan username belum digunakan.
-	if _, err := s.userRepo.FindByUsername(ctx, req.Username); err == nil {
+	_, err := s.userRepo.FindByUsername(ctx, req.Username)
+
+	if err == nil {
 		return helper.Fail(
 			c,
 			fiber.StatusConflict,
 			"username sudah digunakan",
 		)
-	} else if !errors.Is(err, repository.ErrNotFound) {
+	}
+
+	if !errors.Is(err, repository.ErrNotFound) {
 		return helper.Fail(
 			c,
 			fiber.StatusInternalServerError,
@@ -66,6 +75,7 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 		)
 	}
 
+	// Password disimpan dalam bentuk hash.
 	passwordHash, err := helper.HashPassword(req.Password)
 	if err != nil {
 		return helper.Fail(
@@ -80,7 +90,7 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 		Email:    req.Email,
 		Password: passwordHash,
 
-		// Role ditentukan server.
+		// Role tidak boleh ditentukan oleh client.
 		Role: "user",
 
 		IsActive: true,
@@ -103,7 +113,6 @@ func (s *AuthService) Register(c *fiber.Ctx) error {
 		)
 	}
 
-	// Password tidak ikut dikirim karena json:"-".
 	return helper.Created(
 		c,
 		"registrasi berhasil",
@@ -127,14 +136,17 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 		)
 	}
 
+	req.Username = strings.TrimSpace(req.Username)
+
 	if errs := ValidateLogin(req); len(errs) > 0 {
 		return helper.FailValidation(c, errs)
 	}
 
 	user, err := s.userRepo.FindByUsername(ctx, req.Username)
 
-	// Pesan login sengaja dibuat sama untuk user tidak ditemukan
-	// maupun password yang salah.
+	// Gunakan pesan yang sama untuk user tidak ditemukan
+	// maupun password yang salah agar tidak membocorkan
+	// keberadaan username.
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return helper.Fail(
@@ -151,7 +163,15 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 		)
 	}
 
-	if !user.IsActive || !helper.VerifyPassword(user.Password, req.Password) {
+	if !user.IsActive {
+		return helper.Fail(
+			c,
+			fiber.StatusUnauthorized,
+			"username atau password salah",
+		)
+	}
+
+	if !helper.VerifyPassword(user.Password, req.Password) {
 		return helper.Fail(
 			c,
 			fiber.StatusUnauthorized,
@@ -191,6 +211,8 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 		)
 	}
 
+	req.RefreshToken = strings.TrimSpace(req.RefreshToken)
+
 	if req.RefreshToken == "" {
 		return helper.Fail(
 			c,
@@ -199,6 +221,7 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 		)
 	}
 
+	// Database hanya menyimpan hash refresh token.
 	tokenHash := helper.SHA256Hex(req.RefreshToken)
 
 	oldToken, err := s.tokenRepo.FindActive(ctx, tokenHash)
@@ -219,7 +242,8 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 		)
 	}
 
-	// Rotation: token lama langsung dicabut.
+	// Refresh Token Rotation:
+	// token lama langsung dicabut sebelum token baru dibuat.
 	if err := s.tokenRepo.Revoke(ctx, tokenHash); err != nil {
 		return helper.Fail(
 			c,
@@ -260,10 +284,13 @@ func (s *AuthService) Logout(c *fiber.Ctx) error {
 		)
 	}
 
+	req.RefreshToken = strings.TrimSpace(req.RefreshToken)
+
 	if req.RefreshToken != "" {
 		tokenHash := helper.SHA256Hex(req.RefreshToken)
 
-		// Logout cukup dianggap berhasil walaupun token sudah tidak aktif.
+		// Logout tetap dianggap berhasil walaupun token
+		// sudah tidak aktif atau sudah dicabut.
 		_ = s.tokenRepo.Revoke(ctx, tokenHash)
 	}
 
@@ -281,7 +308,7 @@ func (s *AuthService) Me(c *fiber.Ctx) error {
 	defer cancel()
 
 	userID, ok := c.Locals("user_id").(int)
-	if !ok {
+	if !ok || userID <= 0 {
 		return helper.Fail(
 			c,
 			fiber.StatusUnauthorized,
@@ -306,10 +333,12 @@ func (s *AuthService) Me(c *fiber.Ctx) error {
 	)
 }
 
+// issueTokenPair membuat access token dan refresh token baru.
 func (s *AuthService) issueTokenPair(
 	ctx context.Context,
 	user model.User,
 ) (model.TokenPair, error) {
+
 	accessToken, err := s.jwt.GenerateAccessToken(user)
 	if err != nil {
 		return model.TokenPair{}, err

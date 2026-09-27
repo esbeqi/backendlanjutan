@@ -10,7 +10,10 @@ import (
 // Tidak mengimpor Fiber.
 // Tidak mengetahui database.
 
-// ValidateCreate memeriksa data POST.
+// ValidateCreate memeriksa data POST /students.
+//
+// Semua field utama harus diisi dan nilai grade harus berada
+// pada rentang 0 sampai 100.
 func ValidateCreate(req model.CreateStudentRequest) map[string]string {
 	errs := map[string]string{}
 
@@ -29,7 +32,10 @@ func ValidateCreate(req model.CreateStudentRequest) map[string]string {
 	return errs
 }
 
-// ValidateReplace memeriksa data PUT.
+// ValidateReplace memeriksa data PUT /students/:id.
+//
+// Karena PUT mengganti seluruh data, NIM dan nama wajib diisi.
+// Grade juga harus berada pada rentang 0 sampai 100.
 func ValidateReplace(req model.ReplaceStudentRequest) map[string]string {
 	errs := map[string]string{}
 
@@ -48,7 +54,14 @@ func ValidateReplace(req model.ReplaceStudentRequest) map[string]string {
 	return errs
 }
 
-// ApplyPatch hanya mengubah field yang dikirim.
+// ApplyPatch hanya menerapkan field yang dikirim.
+//
+// Pointer pada PatchStudentRequest membedakan antara:
+// - field tidak dikirim  -> nil
+// - field dikirim       -> memiliki nilai
+//
+// Validasi field dilakukan oleh validation layer sebelum
+// perubahan diterapkan.
 func ApplyPatch(
 	current model.Student,
 	req model.PatchStudentRequest,
@@ -57,27 +70,15 @@ func ApplyPatch(
 	errs := map[string]string{}
 
 	if req.NIM != nil {
-		if strings.TrimSpace(*req.NIM) == "" {
-			errs["nim"] = "tidak boleh kosong"
-		} else {
-			current.NIM = *req.NIM
-		}
+		current.NIM = *req.NIM
 	}
 
 	if req.Name != nil {
-		if strings.TrimSpace(*req.Name) == "" {
-			errs["name"] = "tidak boleh kosong"
-		} else {
-			current.Name = *req.Name
-		}
+		current.Name = *req.Name
 	}
 
 	if req.Grade != nil {
-		if *req.Grade < 0 || *req.Grade > 100 {
-			errs["grade"] = "nilai harus antara 0 sampai 100"
-		} else {
-			current.Grade = *req.Grade
-		}
+		current.Grade = *req.Grade
 	}
 
 	if req.IsActive != nil {
@@ -87,7 +88,8 @@ func ApplyPatch(
 	return current, errs
 }
 
-// IsEmptyPatch mengecek apakah PATCH kosong.
+// IsEmptyPatch mengecek apakah PATCH tidak mengirim
+// satu field pun.
 func IsEmptyPatch(req model.PatchStudentRequest) bool {
 	return req.NIM == nil &&
 		req.Name == nil &&
@@ -95,10 +97,12 @@ func IsEmptyPatch(req model.PatchStudentRequest) bool {
 		req.IsActive == nil
 }
 
-// CountTotalPages menghitung jumlah halaman.
+// CountTotalPages menghitung jumlah halaman berdasarkan
+// total data dan limit per halaman.
 func CountTotalPages(total, limit int) int {
 	if limit <= 0 {
 		return 0
 	}
+
 	return (total + limit - 1) / limit
 }

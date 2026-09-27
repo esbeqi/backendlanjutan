@@ -12,33 +12,32 @@ type Student struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Digunakan saat POST /students
-// Semua field wajib diisi.
+// Digunakan saat POST /students.
 type CreateStudentRequest struct {
-	NIM   string `json:"nim"`
-	Name  string `json:"name"`
-	Grade int    `json:"grade"`
+	NIM   string `json:"nim" validate:"required,nim"`
+	Name  string `json:"name" validate:"required,min=3,max=100"`
+	Grade int    `json:"grade" validate:"min=0,max=100"`
 }
 
-// Digunakan saat PUT /students/:id
-// Mengganti seluruh data sehingga semua field wajib dikirim.
+// Digunakan saat PUT /students/:id.
+// PUT mengganti seluruh data sehingga seluruh field wajib dikirim.
 type ReplaceStudentRequest struct {
-	NIM      string `json:"nim"`
-	Name     string `json:"name"`
-	Grade    int    `json:"grade"`
+	NIM      string `json:"nim" validate:"required,nim"`
+	Name     string `json:"name" validate:"required,min=3,max=100"`
+	Grade    int    `json:"grade" validate:"min=0,max=100"`
 	IsActive bool   `json:"is_active"`
 }
 
-// Digunakan saat PATCH /students/:id
-// Hanya field yang dikirim yang akan diubah.
+// Digunakan saat PATCH /students/:id.
+// Pointer membedakan field yang tidak dikirim dari field yang dikirim.
 type PatchStudentRequest struct {
-	NIM      *string `json:"nim,omitempty"`
-	Name     *string `json:"name,omitempty"`
-	Grade    *int    `json:"grade,omitempty"`
+	NIM      *string `json:"nim,omitempty" validate:"omitempty,nim"`
+	Name     *string `json:"name,omitempty" validate:"omitempty,min=3,max=100"`
+	Grade    *int    `json:"grade,omitempty" validate:"omitempty,min=0,max=100"`
 	IsActive *bool   `json:"is_active,omitempty"`
 }
 
-// Format response yang digunakan di semua endpoint.
+// Format response yang digunakan di endpoint.
 type WebResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
@@ -47,7 +46,7 @@ type WebResponse struct {
 	Errors  any    `json:"errors,omitempty"`
 }
 
-// Informasi pagination.
+// Informasi pagination berbasis halaman.
 type Meta struct {
 	Page       int `json:"page"`
 	Limit      int `json:"limit"`
@@ -55,7 +54,7 @@ type Meta struct {
 	TotalPages int `json:"total_pages"`
 }
 
-// Menampung query string dari endpoint GET /students.
+// Menampung query string untuk pagination berbasis offset.
 type ListQuery struct {
 	Page     int
 	Limit    int
