@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -21,16 +22,14 @@ func Register(
 	logger *slog.Logger,
 	allowedOrigins string,
 ) {
-	app.Use(requestid.New())            // 1. beri setiap request satu ID unik
-	app.Use(recover.New())              // 2. tangkap panic agar server tidak mati
-	app.Use(helmet.New())               // 3. pasang header keamanan dasar
-	app.Use(corsPolicy(allowedOrigins)) // 4. atur Cross-Origin Resource Sharing
-	app.Use(RequestLogger(logger))      // 5. catat setiap request
+	app.Use(requestid.New())
+	app.Use(recover.New())
+	app.Use(helmet.New())
+	app.Use(corsPolicy(allowedOrigins))
+	app.Use(RequestLogger(logger))
 }
 
 // corsPolicy membatasi origin yang boleh memanggil API.
-// cors.New() tanpa konfigurasi mengizinkan SEMUA origin — cukup untuk
-// latihan pertemuan 2, tetapi tidak untuk API yang memakai token.
 func corsPolicy(allowedOrigins string) fiber.Handler {
 	if strings.TrimSpace(allowedOrigins) == "" {
 		allowedOrigins = "http://localhost:5173"
@@ -44,28 +43,38 @@ func corsPolicy(allowedOrigins string) fiber.Handler {
 }
 
 // RequestLogger mencatat setiap request ke log terstruktur.
-// Perhatikan polanya: fungsi yang MENGEMBALIKAN fungsi (closure) —
-// inilah cara middleware menerima dependensi dari luar.
 func RequestLogger(logger *slog.Logger) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
 
-		err := c.Next() // serahkan ke middleware/handler berikutnya
+		err := c.Next()
 
 		requestID, _ := c.Locals("requestid").(string)
+
+		// ErrorHandler baru berjalan setelah seluruh rangkaian
+		// middleware selesai, sehingga status perlu dihitung dari error.
+		status := c.Response().StatusCode()
+
+		if err != nil {
+			var appErr *helper.AppError
+
+			if errors.As(err, &appErr) {
+				status = appErr.Status
+			} else {
+				status = fiber.StatusInternalServerError
+			}
+		}
 
 		attrs := []any{
 			slog.String("request_id", requestID),
 			slog.String("method", c.Method()),
 			slog.String("path", c.Path()),
-			slog.Int("status", c.Response().StatusCode()),
+			slog.Int("status", status),
 			slog.Duration("duration", time.Since(start)),
 			slog.String("ip", c.IP()),
 		}
 
 		// Identitas ikut dicatat bila request sudah melewati RequireAuth.
-		// Tanpa ini, log sebuah 403 tidak berguna: kita tahu ada yang ditolak,
-		// tetapi tidak tahu siapa dan mengapa.
 		if user, ok := helper.CurrentUser(c); ok {
 			attrs = append(attrs,
 				slog.Int("user_id", user.UserID),
@@ -86,7 +95,6 @@ var methodsWithBody = map[string]bool{
 }
 
 // RequireJSON menolak request berisi body yang Content-Type-nya bukan JSON.
-// Dipasang per grup route, bukan global.
 func RequireJSON(c *fiber.Ctx) error {
 	if methodsWithBody[c.Method()] {
 		ct := c.Get("Content-Type")

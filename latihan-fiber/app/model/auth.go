@@ -3,12 +3,9 @@ package model
 import "time"
 
 type RegisterRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	// Perhatikan: TIDAK ADA field Role di sini.
-	// Bila ada, siapa pun dapat mendaftar sebagai admin
-	// (kerentanan mass assignment).
+	Username string `json:"username" validate:"required,min=3,max=30,username"`
+	Email    string `json:"email" validate:"required,email,max=120"`
+	Password string `json:"password" validate:"required,max=72,strongpassword"`
 }
 
 type LoginRequest struct {
@@ -24,7 +21,7 @@ type TokenPair struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"` // detik
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 // RefreshToken adalah row pada table refresh_tokens.
