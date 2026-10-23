@@ -21,3 +21,9 @@ type SwitchSupervisorRequest struct {
 	StudentID       int `json:"student_id" validate:"required,min=1"`
 	NewSupervisorID int `json:"new_supervisor_id" validate:"required,min=1"`
 }
+
+type UpdateSupervisorRequest struct {
+	Name            *string `json:"name,omitempty"`
+	Quota           *int    `json:"quota,omitempty"`
+	ExpectedVersion int     `json:"version" validate:"required,min=1"`
+}

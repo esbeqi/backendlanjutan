@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"api-students/app/model"
 	"api-students/app/repository"
@@ -148,4 +150,73 @@ func (s *SupervisorService) Switch(c *fiber.Ctx) error {
 	return helper.Success(c, fiber.StatusOK, "supervisor mahasiswa berhasil diganti", model.Supervision{
 		StudentID: req.StudentID, SupervisorID: req.NewSupervisorID,
 	})
+}
+
+// PATCH /supervisors/:id
+func (s *SupervisorService) Patch(c *fiber.Ctx) error {
+	supervisorID, valid := helper.ParamID(c)
+	if !valid || int64(supervisorID) > 1<<31-1 {
+		return fiber.NewError(fiber.StatusBadRequest, "id harus berupa angka positif")
+	}
+
+	var req model.UpdateSupervisorRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body harus berupa JSON yang valid")
+	}
+
+	validationErrors := make(map[string]string)
+	if req.ExpectedVersion < 1 || int64(req.ExpectedVersion) > 1<<31-1 {
+		validationErrors["version"] = "wajib berupa angka positif"
+	}
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		req.Name = &name
+		if name == "" {
+			validationErrors["name"] = "tidak boleh kosong"
+		} else if utf8.RuneCountInString(name) > 100 {
+			validationErrors["name"] = "maksimal 100 karakter"
+		}
+	}
+	if req.Quota != nil {
+		switch {
+		case *req.Quota < 0:
+			validationErrors["quota"] = "nilai minimal 0"
+		case int64(*req.Quota) > 1<<31-1:
+			validationErrors["quota"] = "nilai melebihi batas kolom database"
+		}
+	}
+	if req.Name == nil && req.Quota == nil {
+		validationErrors["body"] = "minimal satu field name atau quota harus diubah"
+	}
+	if len(validationErrors) > 0 {
+		return helper.FailValidation(c, validationErrors)
+	}
+
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	var updated model.Supervisor
+	err := s.txManager.WithTx(ctx, func(tx repository.DBTX) error {
+		repo := s.repo.WithTx(tx)
+		if err := repo.LockSupervisors(ctx, supervisorID); err != nil {
+			return err
+		}
+		var err error
+		updated, err = repo.UpdateSupervisor(ctx, supervisorID, req.ExpectedVersion, req.Name, req.Quota)
+		return err
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrSupervisorNotFound):
+			return fiber.NewError(fiber.StatusNotFound, "supervisor tidak ditemukan")
+		case errors.Is(err, repository.ErrSupervisorVersion):
+			return fiber.NewError(fiber.StatusConflict, "versi supervisor sudah berubah; muat ulang data lalu coba lagi")
+		case errors.Is(err, repository.ErrQuotaBelowSupervisedCount):
+			return fiber.NewError(fiber.StatusConflict, "kuota tidak boleh lebih kecil dari jumlah mahasiswa terbimbing")
+		default:
+			return fiber.NewError(fiber.StatusInternalServerError, "gagal memperbarui supervisor")
+		}
+	}
+
+	return helper.Success(c, fiber.StatusOK, "supervisor berhasil diperbarui", updated)
 }

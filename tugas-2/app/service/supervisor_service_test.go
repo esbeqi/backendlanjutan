@@ -44,6 +44,8 @@ type testSupervisorRepository struct {
 	lockError    error
 	decrementErr error
 	switchErr    error
+	updateErr    error
+	updated      model.Supervisor
 	calls        []string
 	lockedIDs    []int
 	txReceived   repository.DBTX
@@ -90,6 +92,10 @@ func (r *testSupervisorRepository) DecrementSupervisedCount(context.Context, int
 func (r *testSupervisorRepository) SwitchSupervision(context.Context, int, int, int) error {
 	r.calls = append(r.calls, "switch")
 	return r.switchErr
+}
+func (r *testSupervisorRepository) UpdateSupervisor(context.Context, int, int, *string, *int) (model.Supervisor, error) {
+	r.calls = append(r.calls, "update")
+	return r.updated, r.updateErr
 }
 
 func TestSupervisorAssign(t *testing.T) {
@@ -248,6 +254,95 @@ func TestSupervisorAssignRejectsInvalidAndMalformedBodies(t *testing.T) {
 			}
 			if len(repo.calls) != 0 {
 				t.Fatalf("repository called for invalid body: %v", repo.calls)
+			}
+		})
+	}
+}
+
+func TestSupervisorPatch(t *testing.T) {
+	quota := 12
+	tests := []struct {
+		name                string
+		repo                *testSupervisorRepository
+		body                string
+		wantStatus          int
+		wantCallbackFailure bool
+		wantCalls           string
+		internalError       string
+	}{
+		{name: "success", repo: &testSupervisorRepository{updated: model.Supervisor{ID: 4, Name: "Supervisor Baru", Quota: quota, SupervisedCount: 3, Version: 2}}, body: `{"version":1,"quota":12}`, wantStatus: fiber.StatusOK, wantCalls: "lock_supervisors,update"},
+		{name: "stale version", repo: &testSupervisorRepository{updateErr: repository.ErrSupervisorVersion}, body: `{"version":1,"quota":12}`, wantStatus: fiber.StatusConflict, wantCallbackFailure: true, wantCalls: "lock_supervisors,update"},
+		{name: "supervisor missing", repo: &testSupervisorRepository{lockError: repository.ErrSupervisorNotFound}, body: `{"version":1,"quota":12}`, wantStatus: fiber.StatusNotFound, wantCallbackFailure: true, wantCalls: "lock_supervisors"},
+		{name: "quota below current count", repo: &testSupervisorRepository{updateErr: repository.ErrQuotaBelowSupervisedCount}, body: `{"version":1,"quota":2}`, wantStatus: fiber.StatusConflict, wantCallbackFailure: true, wantCalls: "lock_supervisors,update"},
+		{name: "repository error does not leak", repo: &testSupervisorRepository{updateErr: errors.New("private database detail")}, body: `{"version":1,"quota":12}`, wantStatus: fiber.StatusInternalServerError, wantCallbackFailure: true, wantCalls: "lock_supervisors,update", internalError: "private database detail"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &testTxManager{}
+			app := fiber.New()
+			app.Patch("/supervisors/:id", NewSupervisorService(tt.repo, manager).Patch)
+			request := httptest.NewRequest("PATCH", "/supervisors/4", strings.NewReader(tt.body))
+			request.Header.Set("Content-Type", "application/json")
+			response, err := app.Test(request)
+			if err != nil {
+				t.Fatalf("app.Test: %v", err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", response.StatusCode, tt.wantStatus)
+			}
+			if manager.callbackFailed != tt.wantCallbackFailure {
+				t.Fatalf("callbackFailed = %t, want %t", manager.callbackFailed, tt.wantCallbackFailure)
+			}
+			if got := strings.Join(tt.repo.calls, ","); got != tt.wantCalls {
+				t.Fatalf("calls = %q, want %q", got, tt.wantCalls)
+			}
+			if tt.internalError != "" {
+				body, err := io.ReadAll(response.Body)
+				if err != nil {
+					t.Fatalf("read response: %v", err)
+				}
+				if strings.Contains(string(body), tt.internalError) {
+					t.Fatalf("response leaked internal error: %s", body)
+				}
+			}
+		})
+	}
+}
+
+func TestSupervisorPatchRejectsInvalidInput(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		body       string
+		wantStatus int
+	}{
+		{name: "invalid path ID", path: "/supervisors/0", body: `{"version":1,"quota":3}`, wantStatus: fiber.StatusBadRequest},
+		{name: "malformed JSON", path: "/supervisors/4", body: `{"version":`, wantStatus: fiber.StatusBadRequest},
+		{name: "missing version", path: "/supervisors/4", body: `{"quota":3}`, wantStatus: fiber.StatusUnprocessableEntity},
+		{name: "negative quota", path: "/supervisors/4", body: `{"version":1,"quota":-1}`, wantStatus: fiber.StatusUnprocessableEntity},
+		{name: "quota outside database integer range", path: "/supervisors/4", body: `{"version":1,"quota":2147483648}`, wantStatus: fiber.StatusUnprocessableEntity},
+		{name: "empty patch", path: "/supervisors/4", body: `{"version":1}`, wantStatus: fiber.StatusUnprocessableEntity},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &testSupervisorRepository{}
+			manager := &testTxManager{}
+			app := fiber.New()
+			app.Patch("/supervisors/:id", NewSupervisorService(repo, manager).Patch)
+			request := httptest.NewRequest("PATCH", tt.path, strings.NewReader(tt.body))
+			request.Header.Set("Content-Type", "application/json")
+			response, err := app.Test(request)
+			if err != nil {
+				t.Fatalf("app.Test: %v", err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", response.StatusCode, tt.wantStatus)
+			}
+			if len(repo.calls) != 0 {
+				t.Fatalf("repository called for invalid input: %v", repo.calls)
 			}
 		})
 	}

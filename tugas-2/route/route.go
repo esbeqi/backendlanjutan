@@ -92,6 +92,11 @@ func Register(
 		middleware.RequirePermission(perms, "supervision:manage"),
 		supervisorService.Assign,
 	)
+	supervisors.Patch(
+		"/:id",
+		middleware.RequirePermission(perms, "supervision:manage"),
+		supervisorService.Patch,
+	)
 
 	supervisions := api.Group(
 		"/supervisions",
