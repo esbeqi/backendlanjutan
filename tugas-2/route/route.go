@@ -92,6 +92,18 @@ func Register(
 		middleware.RequirePermission(perms, "supervision:manage"),
 		supervisorService.Assign,
 	)
+
+	supervisions := api.Group(
+		"/supervisions",
+		middleware.RequireJSON,
+		middleware.RequireAuth(jwtManager),
+		middleware.ProvidePermissionSet(perms),
+	)
+	supervisions.Post(
+		"/switch",
+		middleware.RequirePermission(perms, "supervision:manage"),
+		supervisorService.Switch,
+	)
 }
 
 func healthCheck(pool *pgxpool.Pool) fiber.Handler {

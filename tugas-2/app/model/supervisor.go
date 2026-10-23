@@ -16,3 +16,8 @@ type Supervision struct {
 type AssignSupervisorRequest struct {
 	StudentID int `json:"student_id" validate:"required,min=1"`
 }
+
+type SwitchSupervisorRequest struct {
+	StudentID       int `json:"student_id" validate:"required,min=1"`
+	NewSupervisorID int `json:"new_supervisor_id" validate:"required,min=1"`
+}

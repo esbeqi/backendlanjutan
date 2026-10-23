@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"api-students/app/model"
 
@@ -16,6 +17,8 @@ var (
 	ErrSupervisorNotFound = errors.New("supervisor tidak ditemukan")
 	ErrAlreadyAssigned    = errors.New("mahasiswa sudah memiliki supervisor")
 	ErrSupervisorFull     = errors.New("kuota supervisor penuh")
+	ErrNotAssigned        = errors.New("mahasiswa belum memiliki supervisor")
+	ErrSameSupervisor     = errors.New("supervisor tujuan sama dengan supervisor saat ini")
 )
 
 type SupervisorRepository interface {
@@ -24,6 +27,9 @@ type SupervisorRepository interface {
 	FindSupervisionByStudent(ctx context.Context, studentID int) (model.Supervision, error)
 	IncrementSupervisedCount(ctx context.Context, supervisorID int) (model.Supervisor, error)
 	CreateSupervision(ctx context.Context, supervision model.Supervision) error
+	LockSupervisors(ctx context.Context, supervisorIDs ...int) error
+	DecrementSupervisedCount(ctx context.Context, supervisorID int) error
+	SwitchSupervision(ctx context.Context, studentID, oldSupervisorID, newSupervisorID int) error
 }
 
 type supervisorPostgresRepository struct {
@@ -118,4 +124,56 @@ func (r *supervisorPostgresRepository) CreateSupervision(ctx context.Context, su
 		}
 	}
 	return fmt.Errorf("create supervision: %w", err)
+}
+
+// LockSupervisors mengunci setiap supervisor dengan urutan ID yang konsisten.
+func (r *supervisorPostgresRepository) LockSupervisors(ctx context.Context, supervisorIDs ...int) error {
+	ids := append([]int(nil), supervisorIDs...)
+	sort.Ints(ids)
+	previousID := 0
+	for _, id := range ids {
+		if id == previousID {
+			continue
+		}
+		var lockedID int
+		err := r.db.QueryRow(ctx, `SELECT id FROM supervisors WHERE id = $1 FOR UPDATE`, id).Scan(&lockedID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrSupervisorNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("lock supervisor row: %w", err)
+		}
+		previousID = id
+	}
+	return nil
+}
+
+func (r *supervisorPostgresRepository) DecrementSupervisedCount(ctx context.Context, supervisorID int) error {
+	cmd, err := r.db.Exec(ctx, `
+		UPDATE supervisors
+		SET supervised_count = supervised_count - 1
+		WHERE id = $1 AND supervised_count > 0
+	`, supervisorID)
+	if err != nil {
+		return fmt.Errorf("decrement supervised count: %w", err)
+	}
+	if cmd.RowsAffected() != 1 {
+		return fmt.Errorf("decrement supervised count: inconsistent counter for supervisor %d", supervisorID)
+	}
+	return nil
+}
+
+func (r *supervisorPostgresRepository) SwitchSupervision(ctx context.Context, studentID, oldSupervisorID, newSupervisorID int) error {
+	cmd, err := r.db.Exec(ctx, `
+		UPDATE supervisions
+		SET supervisor_id = $1
+		WHERE student_id = $2 AND supervisor_id = $3
+	`, newSupervisorID, studentID, oldSupervisorID)
+	if err != nil {
+		return fmt.Errorf("switch supervision: %w", err)
+	}
+	if cmd.RowsAffected() != 1 {
+		return ErrNotAssigned
+	}
+	return nil
 }

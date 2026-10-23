@@ -81,3 +81,71 @@ func (s *SupervisorService) Assign(c *fiber.Ctx) error {
 		StudentID: req.StudentID, SupervisorID: supervisorID,
 	}, "/api/v1/supervisors/"+strconv.Itoa(supervisorID)+"/assign")
 }
+
+// POST /supervisions/switch
+func (s *SupervisorService) Switch(c *fiber.Ctx) error {
+	var req model.SwitchSupervisorRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body harus berupa JSON yang valid")
+	}
+	validationErrors := make(map[string]string)
+	if req.StudentID < 1 {
+		validationErrors["student_id"] = "harus berupa angka positif"
+	}
+	if req.NewSupervisorID < 1 {
+		validationErrors["new_supervisor_id"] = "harus berupa angka positif"
+	}
+	if len(validationErrors) > 0 {
+		return helper.FailValidation(c, validationErrors)
+	}
+
+	ctx, cancel := helper.RequestContext(c)
+	defer cancel()
+
+	err := s.txManager.WithTx(ctx, func(tx repository.DBTX) error {
+		repo := s.repo.WithTx(tx)
+		if err := repo.LockStudent(ctx, req.StudentID); err != nil {
+			return err
+		}
+		current, err := repo.FindSupervisionByStudent(ctx, req.StudentID)
+		if err != nil {
+			return err
+		}
+		if current.StudentID == 0 {
+			return repository.ErrNotAssigned
+		}
+		if current.SupervisorID == req.NewSupervisorID {
+			return repository.ErrSameSupervisor
+		}
+		if err := repo.LockSupervisors(ctx, current.SupervisorID, req.NewSupervisorID); err != nil {
+			return err
+		}
+		if err := repo.DecrementSupervisedCount(ctx, current.SupervisorID); err != nil {
+			return err
+		}
+		if _, err := repo.IncrementSupervisedCount(ctx, req.NewSupervisorID); err != nil {
+			return err
+		}
+		return repo.SwitchSupervision(ctx, req.StudentID, current.SupervisorID, req.NewSupervisorID)
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrStudentNotFound):
+			return fiber.NewError(fiber.StatusNotFound, "mahasiswa tidak ditemukan")
+		case errors.Is(err, repository.ErrSupervisorNotFound):
+			return fiber.NewError(fiber.StatusNotFound, "supervisor tidak ditemukan")
+		case errors.Is(err, repository.ErrNotAssigned):
+			return fiber.NewError(fiber.StatusConflict, "mahasiswa belum memiliki supervisor")
+		case errors.Is(err, repository.ErrSameSupervisor):
+			return fiber.NewError(fiber.StatusConflict, "supervisor tujuan sama dengan supervisor saat ini")
+		case errors.Is(err, repository.ErrSupervisorFull):
+			return fiber.NewError(fiber.StatusConflict, "kuota supervisor tujuan penuh")
+		default:
+			return fiber.NewError(fiber.StatusInternalServerError, "gagal mengganti supervisor")
+		}
+	}
+
+	return helper.Success(c, fiber.StatusOK, "supervisor mahasiswa berhasil diganti", model.Supervision{
+		StudentID: req.StudentID, SupervisorID: req.NewSupervisorID,
+	})
+}

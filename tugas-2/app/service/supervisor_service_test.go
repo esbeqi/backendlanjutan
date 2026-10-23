@@ -37,10 +37,15 @@ func (m *testTxManager) WithTx(_ context.Context, fn func(repository.DBTX) error
 type testSupervisorRepository struct {
 	studentErr   error
 	existing     bool
+	current      model.Supervision
 	lookupErr    error
 	incrementErr error
 	createErr    error
+	lockError    error
+	decrementErr error
+	switchErr    error
 	calls        []string
+	lockedIDs    []int
 	txReceived   repository.DBTX
 }
 
@@ -58,7 +63,10 @@ func (r *testSupervisorRepository) FindSupervisionByStudent(context.Context, int
 		return model.Supervision{}, r.lookupErr
 	}
 	if r.existing {
-		return model.Supervision{StudentID: 9}, nil
+		if r.current.StudentID == 0 {
+			r.current = model.Supervision{StudentID: 9, SupervisorID: 8}
+		}
+		return r.current, nil
 	}
 	return model.Supervision{}, nil
 }
@@ -69,6 +77,19 @@ func (r *testSupervisorRepository) IncrementSupervisedCount(context.Context, int
 func (r *testSupervisorRepository) CreateSupervision(context.Context, model.Supervision) error {
 	r.calls = append(r.calls, "create")
 	return r.createErr
+}
+func (r *testSupervisorRepository) LockSupervisors(_ context.Context, supervisorIDs ...int) error {
+	r.calls = append(r.calls, "lock_supervisors")
+	r.lockedIDs = append([]int(nil), supervisorIDs...)
+	return r.lockError
+}
+func (r *testSupervisorRepository) DecrementSupervisedCount(context.Context, int) error {
+	r.calls = append(r.calls, "decrement")
+	return r.decrementErr
+}
+func (r *testSupervisorRepository) SwitchSupervision(context.Context, int, int, int) error {
+	r.calls = append(r.calls, "switch")
+	return r.switchErr
 }
 
 func TestSupervisorAssign(t *testing.T) {
@@ -120,6 +141,57 @@ func TestSupervisorAssign(t *testing.T) {
 				}
 				if strings.Contains(string(body), tt.internalError) {
 					t.Fatalf("response leaked internal error: %s", body)
+				}
+			}
+		})
+	}
+}
+
+func TestSupervisorSwitch(t *testing.T) {
+	const requestBody = `{"student_id":9,"new_supervisor_id":2}`
+	tests := []struct {
+		name                string
+		repo                *testSupervisorRepository
+		wantStatus          int
+		wantCallbackFailure bool
+		wantCalls           string
+		wantLockIDs         []int
+	}{
+		{name: "success", repo: &testSupervisorRepository{existing: true, current: model.Supervision{StudentID: 9, SupervisorID: 8}}, wantStatus: fiber.StatusOK, wantCalls: "lock_student,find_supervision,lock_supervisors,decrement,increment,switch", wantLockIDs: []int{8, 2}},
+		{name: "student missing", repo: &testSupervisorRepository{studentErr: repository.ErrStudentNotFound}, wantStatus: fiber.StatusNotFound, wantCallbackFailure: true, wantCalls: "lock_student"},
+		{name: "not assigned", repo: &testSupervisorRepository{}, wantStatus: fiber.StatusConflict, wantCallbackFailure: true, wantCalls: "lock_student,find_supervision"},
+		{name: "same supervisor", repo: &testSupervisorRepository{existing: true, current: model.Supervision{StudentID: 9, SupervisorID: 2}}, wantStatus: fiber.StatusConflict, wantCallbackFailure: true, wantCalls: "lock_student,find_supervision"},
+		{name: "new supervisor full", repo: &testSupervisorRepository{existing: true, current: model.Supervision{StudentID: 9, SupervisorID: 8}, incrementErr: repository.ErrSupervisorFull}, wantStatus: fiber.StatusConflict, wantCallbackFailure: true, wantCalls: "lock_student,find_supervision,lock_supervisors,decrement,increment", wantLockIDs: []int{8, 2}},
+		{name: "relation update fails", repo: &testSupervisorRepository{existing: true, current: model.Supervision{StudentID: 9, SupervisorID: 8}, switchErr: errors.New("private update detail")}, wantStatus: fiber.StatusInternalServerError, wantCallbackFailure: true, wantCalls: "lock_student,find_supervision,lock_supervisors,decrement,increment,switch", wantLockIDs: []int{8, 2}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &testTxManager{}
+			app := fiber.New()
+			app.Post("/supervisions/switch", NewSupervisorService(tt.repo, manager).Switch)
+			request := httptest.NewRequest("POST", "/supervisions/switch", strings.NewReader(requestBody))
+			request.Header.Set("Content-Type", "application/json")
+			response, err := app.Test(request)
+			if err != nil {
+				t.Fatalf("app.Test: %v", err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", response.StatusCode, tt.wantStatus)
+			}
+			if manager.callbackFailed != tt.wantCallbackFailure {
+				t.Fatalf("callbackFailed = %t, want %t", manager.callbackFailed, tt.wantCallbackFailure)
+			}
+			if got := strings.Join(tt.repo.calls, ","); got != tt.wantCalls {
+				t.Fatalf("calls = %q, want %q", got, tt.wantCalls)
+			}
+			if len(tt.repo.lockedIDs) != len(tt.wantLockIDs) {
+				t.Fatalf("lockedIDs = %v, want %v", tt.repo.lockedIDs, tt.wantLockIDs)
+			}
+			for i := range tt.wantLockIDs {
+				if tt.repo.lockedIDs[i] != tt.wantLockIDs[i] {
+					t.Fatalf("lockedIDs = %v, want %v", tt.repo.lockedIDs, tt.wantLockIDs)
 				}
 			}
 		})
