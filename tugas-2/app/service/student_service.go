@@ -13,12 +13,17 @@ import (
 )
 
 type StudentService struct {
-	repo repository.StudentRepository
+	repo      repository.StudentRepository
+	txManager *repository.TxManager
 }
 
-func NewStudentService(repo repository.StudentRepository) *StudentService {
+func NewStudentService(
+	repo repository.StudentRepository,
+	txManager *repository.TxManager,
+) *StudentService {
 	return &StudentService{
-		repo: repo,
+		repo:      repo,
+		txManager: txManager,
 	}
 }
 

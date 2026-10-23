@@ -36,7 +36,8 @@ func main() {
 
 	// Student
 	studentRepository := repository.NewStudentRepository(pool)
-	studentService := service.NewStudentService(studentRepository)
+	txManager := repository.NewTxManager(pool)
+	studentService := service.NewStudentService(studentRepository, txManager)
 
 	// Authentication
 	userRepository := repository.NewUserRepository(pool)

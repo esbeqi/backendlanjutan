@@ -19,6 +19,7 @@ var (
 )
 
 type StudentRepository interface {
+	WithTx(tx DBTX) StudentRepository
 	FindAll(ctx context.Context, q model.ListQuery) ([]model.Student, int, error)
 	FindAllCursor(ctx context.Context, q model.CursorQuery) ([]model.Student, *model.Cursor, error)
 	FindByID(ctx context.Context, id int) (model.Student, error)
@@ -28,13 +29,17 @@ type StudentRepository interface {
 }
 
 type studentPostgresRepository struct {
-	pool *pgxpool.Pool
+	db DBTX
 }
 
 func NewStudentRepository(pool *pgxpool.Pool) StudentRepository {
 	return &studentPostgresRepository{
-		pool: pool,
+		db: pool,
 	}
+}
+
+func (r *studentPostgresRepository) WithTx(tx DBTX) StudentRepository {
+	return &studentPostgresRepository{db: tx}
 }
 
 // FindByID mengambil satu data mahasiswa berdasarkan ID.
@@ -45,7 +50,7 @@ func (r *studentPostgresRepository) FindByID(
 
 	var s model.Student
 
-	err := r.pool.QueryRow(ctx, `
+	err := r.db.QueryRow(ctx, `
 		SELECT
 			id,
 			nim,
@@ -83,7 +88,7 @@ func (r *studentPostgresRepository) Delete(
 	id int,
 ) error {
 
-	cmd, err := r.pool.Exec(
+	cmd, err := r.db.Exec(
 		ctx,
 		`DELETE FROM students WHERE id = $1`,
 		id,
@@ -106,7 +111,7 @@ func (r *studentPostgresRepository) Create(
 	s model.Student,
 ) (model.Student, error) {
 
-	err := r.pool.QueryRow(ctx, `
+	err := r.db.QueryRow(ctx, `
 		INSERT INTO students
 			(nim, name, grade, is_active, owner_id)
 		VALUES ($1, $2, $3, $4, $5)
@@ -142,7 +147,7 @@ func (r *studentPostgresRepository) Update(
 	s model.Student,
 ) (model.Student, error) {
 
-	cmd, err := r.pool.Exec(ctx, `
+	cmd, err := r.db.Exec(ctx, `
 		UPDATE students
 		SET
 			nim = $1,
@@ -250,7 +255,7 @@ func (r *studentPostgresRepository) FindAll(
 		%s
 	`, whereSQL)
 
-	if err := r.pool.QueryRow(
+	if err := r.db.QueryRow(
 		ctx,
 		countSQL,
 		args...,
@@ -288,7 +293,7 @@ func (r *studentPostgresRepository) FindAll(
 		arg+1,
 	)
 
-	rows, err := r.pool.Query(
+	rows, err := r.db.Query(
 		ctx,
 		sql,
 		queryArgs...,
@@ -431,7 +436,7 @@ func (r *studentPostgresRepository) FindAllCursor(
 		arg,
 	)
 
-	rows, err := r.pool.Query(
+	rows, err := r.db.Query(
 		ctx,
 		sql,
 		queryArgs...,
