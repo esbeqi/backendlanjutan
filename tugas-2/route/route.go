@@ -16,6 +16,7 @@ func Register(
 	app *fiber.App,
 	pool *pgxpool.Pool,
 	studentService *service.StudentService,
+	supervisorService *service.SupervisorService,
 	authService *service.AuthService,
 	jwtManager *helper.JWTManager,
 	perms *helper.PermissionSet,
@@ -78,6 +79,18 @@ func Register(
 		"/:id",
 		middleware.RequirePermission(perms, "student:delete"),
 		studentService.Delete,
+	)
+
+	supervisors := api.Group(
+		"/supervisors",
+		middleware.RequireJSON,
+		middleware.RequireAuth(jwtManager),
+		middleware.ProvidePermissionSet(perms),
+	)
+	supervisors.Post(
+		"/:id/assign",
+		middleware.RequirePermission(perms, "supervision:manage"),
+		supervisorService.Assign,
 	)
 }
 
