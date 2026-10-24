@@ -50,6 +50,15 @@ func main() {
 	}
 	defer pool.Close()
 
+	mongoClient, mongoDatabase, err := database.NewMongo(context.Background())
+	if err != nil {
+		logger.Error(
+			"gagal terhubung ke MongoDB",
+			slog.String("error", err.Error()),
+		)
+		os.Exit(1)
+	}
+
 	// 3. JWT Manager
 	jwtManager := helper.NewJWTManager(
 		jwtSecret,
@@ -65,6 +74,17 @@ func main() {
 	roleRepository := repository.NewRoleRepository(pool)
 	courseRepository := repository.NewCourseRepository(pool)
 	enrollmentRepository := repository.NewEnrollmentRepository(pool)
+	reviewRepository := repository.NewReviewRepository(mongoDatabase)
+	indexCtx, cancelIndexCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	err = reviewRepository.EnsureIndexes(indexCtx)
+	cancelIndexCtx()
+	if err != nil {
+		logger.Error(
+			"gagal memastikan index MongoDB untuk course_reviews",
+			slog.String("error", err.Error()),
+		)
+		os.Exit(1)
+	}
 	txManager := repository.NewTxManager(pool)
 
 	// Pemetaan role ke permission dibaca SEKALI saat aplikasi menyala.
@@ -106,6 +126,9 @@ func main() {
 		logger,
 		route.Dependencies{
 			Pool:              pool,
+			MongoClient:       mongoClient,
+			MongoDatabase:     mongoDatabase,
+			ReviewRepository:  reviewRepository,
 			JWT:               jwtManager,
 			Permissions:       permissions,
 			UserService:       userService,
@@ -154,6 +177,18 @@ func main() {
 	if err := app.ShutdownWithContext(ctx); err != nil {
 		logger.Error(
 			"gagal menutup server dengan rapi",
+			slog.String("error", err.Error()),
+		)
+	}
+
+	disconnectCtx, disconnectCancel := context.WithTimeout(
+		context.Background(),
+		5*time.Second,
+	)
+	defer disconnectCancel()
+	if err := mongoClient.Disconnect(disconnectCtx); err != nil {
+		logger.Error(
+			"gagal memutus koneksi MongoDB",
 			slog.String("error", err.Error()),
 		)
 	}

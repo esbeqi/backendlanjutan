@@ -6,7 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
+	"latihan-fiber/app/repository"
 	"latihan-fiber/app/service"
 	"latihan-fiber/helper"
 	"latihan-fiber/middleware"
@@ -14,6 +17,9 @@ import (
 
 type Dependencies struct {
 	Pool              *pgxpool.Pool
+	MongoClient       *mongo.Client
+	MongoDatabase     *mongo.Database
+	ReviewRepository  repository.ReviewRepository
 	JWT               *helper.JWTManager
 	Permissions       *helper.PermissionSet
 	UserService       *service.UserService
@@ -26,7 +32,7 @@ func Register(app *fiber.App, deps Dependencies) {
 	api := app.Group("/api/v1")
 
 	// --- publik ---
-	api.Get("/health", healthCheck(deps.Pool))
+	api.Get("/health", healthCheck(deps.Pool, deps.MongoClient))
 
 	// --- autentikasi ---
 	auth := api.Group("/auth", middleware.RequireJSON)
@@ -99,7 +105,7 @@ func Register(app *fiber.App, deps Dependencies) {
 }
 
 // healthCheck melaporkan kondisi layanan beserta databasenya.
-func healthCheck(pool *pgxpool.Pool) fiber.Handler {
+func healthCheck(pool *pgxpool.Pool, mongoClient *mongo.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(
 			c.UserContext(),
@@ -108,6 +114,13 @@ func healthCheck(pool *pgxpool.Pool) fiber.Handler {
 		defer cancel()
 
 		if err := pool.Ping(ctx); err != nil {
+			return helper.Fail(
+				c,
+				fiber.StatusServiceUnavailable,
+				"database tidak dapat dihubungi",
+			)
+		}
+		if err := mongoClient.Ping(ctx, readpref.Primary()); err != nil {
 			return helper.Fail(
 				c,
 				fiber.StatusServiceUnavailable,
