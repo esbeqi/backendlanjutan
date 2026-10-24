@@ -16,6 +16,7 @@ func Register(
 	app *fiber.App,
 	pool *pgxpool.Pool,
 	studentService *service.StudentService,
+	studentPortfolioService *service.StudentPortfolioService,
 	supervisorService *service.SupervisorService,
 	authService *service.AuthService,
 	jwtManager *helper.JWTManager,
@@ -26,6 +27,14 @@ func Register(
 
 	// Public endpoint
 	api.Get("/health", healthCheck(pool))
+
+	// Register the static statistics path before parameterized student routes.
+	portfolios := api.Group(
+		"/portfolios",
+		middleware.RequireAuth(jwtManager),
+		middleware.ProvidePermissionSet(perms),
+	)
+	portfolios.Get("/stats/technologies", studentPortfolioService.TechnologyStats)
 
 	// Authentication
 	auth := api.Group("/auth")
@@ -59,6 +68,11 @@ func Register(
 		middleware.RequirePermission(perms, "student:list"),
 		studentService.List,
 	)
+
+	students.Get("/:id/portfolio", studentPortfolioService.Get)
+	students.Put("/:id/portfolio", studentPortfolioService.Replace)
+	students.Post("/:id/portfolio/projects", studentPortfolioService.AddProject)
+	students.Delete("/:id/portfolio/projects/:projectId", studentPortfolioService.DeleteProject)
 
 	// Ownership / student:read:any ditangani di service
 	students.Get("/:id", studentService.Get)

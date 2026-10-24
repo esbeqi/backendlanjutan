@@ -16,6 +16,12 @@ import (
 )
 
 func main() {
+	exitCode := 0
+	defer func() {
+		if exitCode != 0 {
+			os.Exit(exitCode)
+		}
+	}()
 
 	// 1. Load konfigurasi & logger
 	config.LoadEnv()
@@ -28,9 +34,34 @@ func main() {
 			"gagal terhubung ke database",
 			slog.String("error", err.Error()),
 		)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 	defer pool.Close()
+
+	mongoClient, mongoDatabase, err := database.NewMongo(context.Background())
+	if err != nil {
+		logger.Error(
+			"gagal terhubung ke MongoDB",
+			slog.String("error", err.Error()),
+		)
+		exitCode = 1
+		return
+	}
+	defer disconnectMongo(mongoClient, logger)
+
+	portfolioRepository := repository.NewStudentPortfolioRepository(mongoDatabase)
+	indexCtx, cancelIndexCtx := context.WithTimeout(context.Background(), 10*time.Second)
+	err = portfolioRepository.EnsureIndexes(indexCtx)
+	cancelIndexCtx()
+	if err != nil {
+		logger.Error(
+			"gagal memastikan index MongoDB untuk student_portfolios",
+			slog.String("error", err.Error()),
+		)
+		exitCode = 1
+		return
+	}
 
 	// 3. Repository -> Service
 
@@ -38,6 +69,7 @@ func main() {
 	studentRepository := repository.NewStudentRepository(pool)
 	txManager := repository.NewTxManager(pool)
 	studentService := service.NewStudentService(studentRepository, txManager)
+	portfolioService := service.NewStudentPortfolioService(studentRepository, portfolioRepository)
 	supervisorRepository := repository.NewSupervisorRepository(pool)
 	supervisorService := service.NewSupervisorService(supervisorRepository, txManager)
 
@@ -66,7 +98,8 @@ func main() {
 			"gagal memuat permission",
 			slog.String("error", err.Error()),
 		)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
 
 	perms := helper.NewPermissionSet(rawPermissions)
@@ -76,6 +109,7 @@ func main() {
 		logger,
 		pool,
 		studentService,
+		portfolioService,
 		supervisorService,
 		authService,
 		jwtManager,
@@ -84,13 +118,10 @@ func main() {
 
 	port := config.GetEnv("APP_PORT", "3000")
 
+	serverErr := make(chan error, 1)
 	go func() {
 		if err := app.Listen(":" + port); err != nil {
-			logger.Error(
-				"server berhenti",
-				slog.String("error", err.Error()),
-			)
-			os.Exit(1)
+			serverErr <- err
 		}
 	}()
 
@@ -107,9 +138,14 @@ func main() {
 		syscall.SIGTERM,
 	)
 
-	<-quit
-
-	logger.Info("sinyal berhenti diterima, menutup server")
+	serverFailed := false
+	select {
+	case <-quit:
+		logger.Info("sinyal berhenti diterima, menutup server")
+	case err := <-serverErr:
+		logger.Error("server berhenti", slog.String("error", err.Error()))
+		serverFailed = true
+	}
 
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
@@ -125,4 +161,20 @@ func main() {
 	}
 
 	logger.Info("server berhenti dengan rapi")
+	if serverFailed {
+		exitCode = 1
+	}
+}
+
+func disconnectMongo(client interface {
+	Disconnect(context.Context) error
+}, logger *slog.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Disconnect(ctx); err != nil {
+		logger.Error(
+			"gagal memutus koneksi MongoDB",
+			slog.String("error", err.Error()),
+		)
+	}
 }
