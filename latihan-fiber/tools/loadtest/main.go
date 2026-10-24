@@ -43,7 +43,8 @@ type result struct {
 }
 
 func main() {
-	mode := flag.String("mode", "", "crowd | credits | setup-swap | swap | functional | health | logs")
+	mode := flag.String("mode", "", "crowd | credits | setup-swap | swap | functional | reviews | health | logs")
+	reviewScenario := flag.String("review-scenario", "read", "reviews scenario: read | validation | write | concurrent")
 	baseURL := flag.String("url", "", "base URL, default http://localhost:$APP_PORT")
 	logPath := flag.String("log", filepath.Join("logs", "app.log"), "app log path for -mode logs")
 	flag.Parse()
@@ -56,7 +57,7 @@ func main() {
 		checkLogs(*logPath)
 		return
 	}
-	if *mode != "crowd" && *mode != "credits" && *mode != "setup-swap" && *mode != "swap" && *mode != "functional" {
+	if *mode != "crowd" && *mode != "credits" && *mode != "setup-swap" && *mode != "swap" && *mode != "functional" && *mode != "reviews" {
 		fatalf("mode tidak dikenal; gunakan -h untuk bantuan")
 	}
 
@@ -90,6 +91,8 @@ func main() {
 		runErr = r.swap()
 	case "functional":
 		runErr = r.functional()
+	case "reviews":
+		runErr = r.reviewScenario(*reviewScenario)
 	}
 	if runErr != nil {
 		fatalf("%v", runErr)

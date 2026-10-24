@@ -37,6 +37,7 @@ type CourseRepository interface {
 	List(ctx context.Context, q CourseListQuery) (CoursePage, error)
 	FindAll(ctx context.Context) ([]model.Course, error)
 	FindByID(ctx context.Context, id int) (model.Course, error)
+	IsEnrolled(ctx context.Context, courseID, userID int) (bool, error)
 	FindForUpdate(ctx context.Context, id int) (model.Course, error)
 	FindByStudent(ctx context.Context, userID int) ([]model.Course, error)
 	LockStudent(ctx context.Context, userID int) error
@@ -116,6 +117,20 @@ func (r *coursePostgresRepository) FindAll(ctx context.Context) ([]model.Course,
 
 func (r *coursePostgresRepository) FindByID(ctx context.Context, id int) (model.Course, error) {
 	return r.findByID(ctx, id, false)
+}
+
+// IsEnrolled memeriksa status enrollment tanpa mengambil row enrollment.
+func (r *coursePostgresRepository) IsEnrolled(ctx context.Context, courseID, userID int) (bool, error) {
+	var enrolled bool
+	err := r.db.QueryRow(ctx,
+		"SELECT EXISTS (SELECT 1 FROM enrollments WHERE course_id = $1 AND user_id = $2)",
+		courseID,
+		userID,
+	).Scan(&enrolled)
+	if err != nil {
+		return false, fmt.Errorf("memeriksa pendaftaran: %w", err)
+	}
+	return enrolled, nil
 }
 
 func (r *coursePostgresRepository) FindForUpdate(ctx context.Context, id int) (model.Course, error) {

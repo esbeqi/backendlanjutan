@@ -266,7 +266,7 @@ func TestReviewRepositorySummaryAggregation(t *testing.T) {
 		CourseID:      courseID,
 		Count:         3,
 		AverageRating: 4,
-		Distribution:  map[string]int{"3": 1, "4": 1, "5": 1},
+		Distribution:  map[string]int{"1": 0, "2": 0, "3": 1, "4": 1, "5": 1},
 		TopTags:       []model.TagCount{{Tag: "clear", Total: 2}, {Tag: "practical", Total: 2}, {Tag: "examples", Total: 1}},
 	}
 	if !reflect.DeepEqual(got, want) {

@@ -235,7 +235,7 @@ func TestReviewSummaryDocumentToModel(t *testing.T) {
 		CourseID:      17,
 		Count:         3,
 		AverageRating: 4.5,
-		Distribution:  map[string]int{"4": 1, "5": 2},
+		Distribution:  map[string]int{"1": 0, "2": 0, "3": 0, "4": 1, "5": 2},
 		TopTags:       []model.TagCount{{Tag: "materi-jelas", Total: 2}, {Tag: "praktis", Total: 1}},
 	}
 	if got := doc.toModel(17); !reflect.DeepEqual(got, want) {
@@ -247,11 +247,18 @@ func TestEmptyReviewSummaryDocumentToModel(t *testing.T) {
 	got := (reviewSummaryDocument{}).toModel(17)
 	want := model.ReviewSummary{
 		CourseID:     17,
-		Distribution: map[string]int{},
+		Distribution: map[string]int{"1": 0, "2": 0, "3": 0, "4": 0, "5": 0},
 		TopTags:      []model.TagCount{},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("empty summary toModel() = %#v, want %#v", got, want)
+	}
+}
+
+func TestReviewSummaryDocumentRoundsAverageRatingToTwoDecimals(t *testing.T) {
+	doc := reviewSummaryDocument{Stats: []reviewSummaryStatsDocument{{Count: 8, Avg: 4.125}}}
+	if got := doc.toModel(17).AverageRating; got != 4.13 {
+		t.Fatalf("AverageRating = %.2f, want 4.13", got)
 	}
 }
 

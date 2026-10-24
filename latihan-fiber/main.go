@@ -120,6 +120,7 @@ func main() {
 	)
 	courseService := service.NewCourseService(courseRepository, txManager)
 	enrollmentService := service.NewEnrollmentService(pool, enrollmentRepository)
+	reviewService := service.NewReviewService(reviewRepository, courseRepository, permissions)
 
 	// 5. App
 	app := config.NewApp(
@@ -135,6 +136,7 @@ func main() {
 			AuthService:       authService,
 			CourseService:     courseService,
 			EnrollmentService: enrollmentService,
+			ReviewService:     reviewService,
 		},
 	)
 

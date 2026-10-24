@@ -189,13 +189,19 @@ func reviewSummaryPipeline(courseID int) mongo.Pipeline {
 
 func (d reviewSummaryDocument) toModel(courseID int) model.ReviewSummary {
 	summary := model.ReviewSummary{
-		CourseID:     courseID,
-		Distribution: make(map[string]int, len(d.Distribution)),
-		TopTags:      make([]model.TagCount, 0, len(d.TopTags)),
+		CourseID: courseID,
+		Distribution: map[string]int{
+			"1": 0,
+			"2": 0,
+			"3": 0,
+			"4": 0,
+			"5": 0,
+		},
+		TopTags: make([]model.TagCount, 0, len(d.TopTags)),
 	}
 	if len(d.Stats) > 0 {
 		summary.Count = d.Stats[0].Count
-		summary.AverageRating = d.Stats[0].Avg
+		summary.AverageRating = float64(int(d.Stats[0].Avg*100+0.5)) / 100
 	}
 	for _, item := range d.Distribution {
 		summary.Distribution[strconv.Itoa(item.ID)] = item.Total
@@ -292,6 +298,9 @@ func newReviewDocument(review model.Review) reviewDocument {
 func (r *reviewMongoRepository) Create(ctx context.Context, review model.Review) (model.Review, error) {
 	doc := newReviewDocument(review)
 	if _, err := r.collection.InsertOne(ctx, doc); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return model.Review{}, ErrDuplicate
+		}
 		return model.Review{}, fmt.Errorf("menyimpan ulasan: %w", err)
 	}
 	return doc.toModel(), nil
