@@ -19,11 +19,17 @@ func Register(
 	studentPortfolioService *service.StudentPortfolioService,
 	supervisorService *service.SupervisorService,
 	authService *service.AuthService,
+	courseService *service.CourseService,
 	jwtManager *helper.JWTManager,
 	perms *helper.PermissionSet,
 ) {
 
 	api := app.Group("/api/v1")
+	courses := api.Group("/courses", middleware.RequireJSON, middleware.RequireAuth(jwtManager), middleware.ProvidePermissionSet(perms))
+	courses.Patch("/:id", middleware.RequirePermission(perms, "course:manage"), courseService.Patch)
+	courses.Post("/:id/enroll", courseService.Enroll)
+	courses.Delete("/:id/enroll", courseService.Drop)
+	api.Get("/notifications/mine", middleware.RequireAuth(jwtManager), courseService.Mine)
 
 	// Public endpoint
 	api.Get("/health", healthCheck(pool))

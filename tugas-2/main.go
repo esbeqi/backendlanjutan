@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/hibiken/asynq"
+
+	"api-students/app/model"
 	"api-students/app/repository"
 	"api-students/app/service"
 	"api-students/config"
@@ -16,6 +20,8 @@ import (
 )
 
 func main() {
+	workerRole := flag.Bool("worker", false, "jalankan worker notifikasi")
+	flag.Parse()
 	exitCode := 0
 	defer func() {
 		if exitCode != 0 {
@@ -38,6 +44,29 @@ func main() {
 		return
 	}
 	defer pool.Close()
+
+	txManager := repository.NewTxManager(pool)
+	courseRepository := repository.NewCourseRepository(pool)
+	outboxRepository := repository.NewOutboxRepository(pool)
+	notificationRepository := repository.NewNotificationRepository(pool)
+	redisOpt := asynq.RedisClientOpt{Addr: config.GetEnv("REDIS_ADDR", "localhost:6379"), Password: config.GetEnv("REDIS_PASSWORD", ""), DB: 0}
+	if *workerRole {
+		server := asynq.NewServer(redisOpt, asynq.Config{Concurrency: 5, Queues: map[string]int{model.QueueNotifications: 1}, ShutdownTimeout: 30 * time.Second})
+		handler := service.NewNotificationWorker(txManager, notificationRepository, helper.NewMailer(), logger)
+		if err := server.Start(handler); err != nil {
+			logger.Error("worker gagal mulai", slog.String("error", err.Error()))
+			exitCode = 1
+			return
+		}
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+		logger.Info("sinyal worker diterima")
+		server.Stop()
+		server.Shutdown()
+		logger.Info("worker berhenti dengan rapi")
+		return
+	}
 
 	mongoClient, mongoDatabase, err := database.NewMongo(context.Background())
 	if err != nil {
@@ -67,7 +96,6 @@ func main() {
 
 	// Student
 	studentRepository := repository.NewStudentRepository(pool)
-	txManager := repository.NewTxManager(pool)
 	studentService := service.NewStudentService(studentRepository, txManager)
 	portfolioService := service.NewStudentPortfolioService(studentRepository, portfolioRepository)
 	supervisorRepository := repository.NewSupervisorRepository(pool)
@@ -103,6 +131,7 @@ func main() {
 	}
 
 	perms := helper.NewPermissionSet(rawPermissions)
+	courseService := service.NewCourseService(courseRepository, outboxRepository, notificationRepository, txManager)
 
 	// 4. Buat aplikasi
 	app := config.NewApp(
@@ -112,11 +141,18 @@ func main() {
 		portfolioService,
 		supervisorService,
 		authService,
+		courseService,
 		jwtManager,
 		perms,
 	)
 
 	port := config.GetEnv("APP_PORT", "3000")
+	redisClient := asynq.NewClient(redisOpt)
+	defer redisClient.Close()
+	relay := service.NewRelay(txManager, outboxRepository, redisClient, logger)
+	relayCtx, cancelRelay := context.WithCancel(context.Background())
+	defer cancelRelay()
+	go relay.Run(relayCtx)
 
 	serverErr := make(chan error, 1)
 	go func() {

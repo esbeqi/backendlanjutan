@@ -23,6 +23,7 @@ func NewApp(
 	studentPortfolioService *service.StudentPortfolioService,
 	supervisorService *service.SupervisorService,
 	authService *service.AuthService,
+	courseService *service.CourseService,
 	jwtManager *helper.JWTManager,
 	perms *helper.PermissionSet,
 ) *fiber.App {
@@ -43,6 +44,7 @@ func NewApp(
 		studentPortfolioService,
 		supervisorService,
 		authService,
+		courseService,
 		jwtManager,
 		perms,
 	)
