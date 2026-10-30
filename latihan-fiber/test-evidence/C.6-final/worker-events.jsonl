@@ -1,0 +1,3 @@
+﻿{"time":"2026-10-30T10:46:53.6572793+07:00","level":"INFO","msg":"sinyal berhenti diterima, menutup worker"}
+{"time":"2026-10-30T10:46:57.3945016+07:00","level":"INFO","msg":"notification_processed","outbox_id":40,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T10:46:57.4080292+07:00","level":"INFO","msg":"worker berhenti dengan rapi"}

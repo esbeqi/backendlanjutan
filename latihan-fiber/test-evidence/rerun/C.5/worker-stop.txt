@@ -1,0 +1,1 @@
+worker_pid=15616 stopped_before_C6=true

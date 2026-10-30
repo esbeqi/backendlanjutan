@@ -1,0 +1,1 @@
+worker_pid=24596 force_stopped_after_C4=true

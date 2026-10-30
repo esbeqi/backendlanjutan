@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"latihan-fiber/app/repository"
 	"latihan-fiber/app/service"
 	"latihan-fiber/config"
@@ -20,24 +22,13 @@ const minSecretLength = 32
 
 // main hanya berisi urutan perakitan.
 func main() {
+	role := flag.String("role", "api", "peran proses: api atau worker")
+	flag.Parse()
 
 	// 1. Konfigurasi dan logger
 	config.LoadEnv()
 
 	logger := config.NewLogger()
-
-	// Rahasia diperiksa SEBELUM server menyala.
-	// Lebih baik gagal seketika daripada berjalan dengan token
-	// yang mudah dipalsukan.
-	jwtSecret := config.GetEnv("JWT_SECRET", "")
-
-	if len(jwtSecret) < minSecretLength {
-		logger.Error(
-			"JWT_SECRET tidak diisi atau terlalu pendek",
-			slog.Int("minimal_karakter", minSecretLength),
-		)
-		os.Exit(1)
-	}
 
 	// 2. Database
 	pool, err := database.NewPool(context.Background())
@@ -49,6 +40,31 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+
+	if *role == "worker" {
+		workerCtx, cancelWorker := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		stopWorker := startWorker(workerCtx, logger, pool)
+		if stopWorker == nil {
+			cancelWorker()
+			os.Exit(1)
+		}
+		<-workerCtx.Done()
+		logger.Info("sinyal berhenti diterima, menutup worker")
+		cancelWorker()
+		stopWorker()
+		logger.Info("worker berhenti dengan rapi")
+		return
+	}
+	if *role != "api" {
+		logger.Error("role tidak dikenal", slog.String("role", *role))
+		os.Exit(2)
+	}
+	// Rahasia diperiksa SEBELUM server menyala.
+	jwtSecret := config.GetEnv("JWT_SECRET", "")
+	if len(jwtSecret) < minSecretLength {
+		logger.Error("JWT_SECRET tidak diisi atau terlalu pendek", slog.Int("minimal_karakter", minSecretLength))
+		os.Exit(1)
+	}
 
 	mongoClient, mongoDatabase, err := database.NewMongo(context.Background())
 	if err != nil {
@@ -75,6 +91,9 @@ func main() {
 	courseRepository := repository.NewCourseRepository(pool)
 	enrollmentRepository := repository.NewEnrollmentRepository(pool)
 	reviewRepository := repository.NewReviewRepository(mongoDatabase)
+	outboxRepository := repository.NewOutboxRepository(pool)
+	notificationRepository := repository.NewNotificationRepository(pool)
+	inspector := asynq.NewInspector(config.RedisOpt())
 	indexCtx, cancelIndexCtx := context.WithTimeout(context.Background(), 10*time.Second)
 	err = reviewRepository.EnsureIndexes(indexCtx)
 	cancelIndexCtx()
@@ -118,25 +137,27 @@ func main() {
 			config.GetEnvInt("JWT_REFRESH_TTL_DAYS", 7),
 		)*24*time.Hour,
 	)
-	courseService := service.NewCourseService(courseRepository, txManager)
+	courseService := service.NewCourseService(courseRepository, outboxRepository, txManager)
 	enrollmentService := service.NewEnrollmentService(pool, enrollmentRepository)
 	reviewService := service.NewReviewService(reviewRepository, courseRepository, permissions)
+	notificationService := service.NewNotificationService(notificationRepository, outboxRepository, inspector)
 
 	// 5. App
 	app := config.NewApp(
 		logger,
 		route.Dependencies{
-			Pool:              pool,
-			MongoClient:       mongoClient,
-			MongoDatabase:     mongoDatabase,
-			ReviewRepository:  reviewRepository,
-			JWT:               jwtManager,
-			Permissions:       permissions,
-			UserService:       userService,
-			AuthService:       authService,
-			CourseService:     courseService,
-			EnrollmentService: enrollmentService,
-			ReviewService:     reviewService,
+			Pool:                pool,
+			MongoClient:         mongoClient,
+			MongoDatabase:       mongoDatabase,
+			ReviewRepository:    reviewRepository,
+			JWT:                 jwtManager,
+			Permissions:         permissions,
+			UserService:         userService,
+			AuthService:         authService,
+			CourseService:       courseService,
+			EnrollmentService:   enrollmentService,
+			ReviewService:       reviewService,
+			NotificationService: notificationService,
 		},
 	)
 
@@ -182,6 +203,7 @@ func main() {
 			slog.String("error", err.Error()),
 		)
 	}
+	_ = inspector.Close()
 
 	disconnectCtx, disconnectCancel := context.WithTimeout(
 		context.Background(),

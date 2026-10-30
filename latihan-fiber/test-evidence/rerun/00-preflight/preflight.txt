@@ -1,0 +1,27 @@
+﻿redis_tcp=True
+docker=
+api_processes=
+api_health=success
+preexisting_mail_lines=8
+config.env_values: MAILER_DELAY_MS and MAILER_FAIL_EVERY will be supplied to worker processes only; .env unchanged.
+build_exit=0
+vet_exit=0
+
+mhsuji_snapshot:
+snapshot query_row outbox_id=26 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF101 Pemrograman Backend Lanjut" sent_at=2026-10-30 10:23:14.731335 +0700 +07
+snapshot query_row outbox_id=27 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF102 Basis Data Lanjut" sent_at=2026-10-30 10:23:14.733612 +0700 +07
+snapshot query_row outbox_id=28 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF301 Kecerdasan Buatan" sent_at=2026-10-30 10:23:18.583492 +0700 +07
+snapshot query_row outbox_id=29 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF302 Keamanan Informasi" sent_at=2026-10-30 10:23:14.784883 +0700 +07
+snapshot query_row outbox_id=30 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF303 Komputasi Awan" sent_at=2026-10-30 10:23:14.791586 +0700 +07
+snapshot query_row outbox_id=31 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF304 Data Mining" sent_at=2026-10-30 10:23:23.675518 +0700 +07
+snapshot query_row outbox_id=33 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF306 Interaksi Manusia Komputer" sent_at=2026-10-30 10:26:08.601796 +0700 +07
+snapshot query_row outbox_id=34 event_type=enrollment.created published=true notification_subject="KRS: berhasil terdaftar di IF307 Sistem Terdistribusi" sent_at=2026-10-30 10:27:26.100575 +0700 +07
+snapshot db_outbox=8 db_notifications=8 api_notifications=8 mail_log_lines=2 pending_outbox=0 target=-1
+snapshot outbox_types=[enrollment.created enrollment.created enrollment.created enrollment.created enrollment.created enrollment.created enrollment.created enrollment.created]
+snapshot notification_subjects=["KRS: berhasil terdaftar di IF101 Pemrograman Backend Lanjut" "KRS: berhasil terdaftar di IF102 Basis Data Lanjut" "KRS: berhasil terdaftar di IF301 Kecerdasan Buatan" "KRS: berhasil terdaftar di IF302 Keamanan Informasi" "KRS: berhasil terdaftar di IF303 Komputasi Awan" "KRS: berhasil terdaftar di IF304 Data Mining" "KRS: berhasil terdaftar di IF306 Interaksi Manusia Komputer" "KRS: berhasil terdaftar di IF307 Sistem Terdistribusi"]
+
+salahalamat_snapshot:
+snapshot query_row outbox_id=32 event_type=enrollment.created published=true notification_subject="" sent_at=<nil>
+snapshot db_outbox=1 db_notifications=0 api_notifications=0 mail_log_lines=0 pending_outbox=0 target=-1
+snapshot outbox_types=[enrollment.created]
+snapshot notification_subjects=[]

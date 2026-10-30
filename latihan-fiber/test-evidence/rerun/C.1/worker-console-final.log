@@ -1,0 +1,7 @@
+{"time":"2026-10-30T12:24:56.0703648+07:00","level":"INFO","msg":"worker berjalan"}
+{"time":"2026-10-30T12:24:59.0824558+07:00","level":"INFO","msg":"relay_done","published":2}
+{"time":"2026-10-30T12:25:00.0790695+07:00","level":"INFO","msg":"relay_done","published":2}
+{"time":"2026-10-30T12:25:00.7254355+07:00","level":"INFO","msg":"notification_processed","outbox_id":58,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:25:00.7271364+07:00","level":"INFO","msg":"notification_processed","outbox_id":59,"event":"enrollment.dropped","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:25:02.0517136+07:00","level":"INFO","msg":"notification_processed","outbox_id":60,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:25:02.1134831+07:00","level":"INFO","msg":"notification_processed","outbox_id":61,"event":"enrollment.swapped","retry":0,"already_sent":false}

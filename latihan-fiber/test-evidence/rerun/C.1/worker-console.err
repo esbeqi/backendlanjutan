@@ -1,0 +1,1 @@
+redis: 2026/10/30 12:19:09 pubsub.go:171: redis: discarding bad PubSub connection: EOF

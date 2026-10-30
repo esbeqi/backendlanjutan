@@ -1,0 +1,2 @@
+host_pid=38188 args=-NoProfile -ExecutionPolicy Bypass -File "E:\kuliah\semester 5\backend lanjutan\praktikum\modul tugas\latihan-fiber\test-evidence\rerun\C.6\worker-c6-rerun.ps1"
+host_exited=True exit_code=

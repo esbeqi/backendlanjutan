@@ -1,0 +1,1 @@
+git diff --check -- latihan-fiber/ exit_code=0

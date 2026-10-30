@@ -1,0 +1,8 @@
+﻿C.6 final reconciliation for outbox_id=40 (unique test account, course IF307):
+- API POST /api/v1/courses/9/enroll returned 201 (see api-request.log).
+- PostgreSQL snapshot: outbox rows=1, notifications=1, API notifications=1, pending_outbox=0 (see database-after.txt).
+- Recipient-specific logs/mail.log filter: 1 email line (see mail.log).
+- The helper snapshot's mail_log_lines=0 is not an application result: tools/mod11ops/emailFor only knows mhsuji and salahalamat, so a custom C6 account is mapped to salah@kampus.invalid. The recipient-filtered mail evidence is authoritative for this account.
+- Event order: relay_done at 10:46:51.645; Ctrl+C event at 10:46:53.649; worker logged signal receipt at 10:46:53.657; notification_processed at 10:46:57.395; graceful shutdown at 10:46:57.408.
+- MAILER_DELAY_MS was set to 5000 only in the worker host process, restored to 1500 by that host after worker exit, and .env was not edited. In .env the variable is absent, so project default remains 1500.
+- No project implementation files were edited during this C.6 investigation. Test account/outbox/notification records remain for audit.

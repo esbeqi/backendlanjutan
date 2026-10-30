@@ -1,0 +1,17 @@
+{"time":"2026-10-30T12:18:30.2589231+07:00","level":"INFO","msg":"worker berjalan"}
+{"time":"2026-10-30T12:18:30.2777703+07:00","level":"INFO","msg":"relay_done","published":1}
+{"time":"2026-10-30T12:18:33.0811097+07:00","level":"INFO","msg":"notification_processed","outbox_id":41,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:18:33.4720852+07:00","level":"INFO","msg":"http_request","request_id":"0d71385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/auth/login","status":200,"duration":372710500,"ip":"127.0.0.1"}
+{"time":"2026-10-30T12:18:33.4850215+07:00","level":"INFO","msg":"http_request","request_id":"0e71385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/courses/2/enroll","status":201,"duration":12068800,"ip":"127.0.0.1","user_id":91,"role":"user"}
+{"time":"2026-10-30T12:18:33.4891317+07:00","level":"INFO","msg":"http_request","request_id":"0f71385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/courses/2/enroll","status":409,"duration":3604300,"ip":"127.0.0.1","user_id":91,"role":"user"}
+{"time":"2026-10-30T12:18:33.4891317+07:00","level":"WARN","msg":"request_rejected","request_id":"0f71385e-2407-4c1b-b92c-3a28fb350044","path":"/api/v1/courses/2/enroll","code":"ALREADY_ENROLLED","status":409}
+{"time":"2026-10-30T12:18:33.4925236+07:00","level":"INFO","msg":"http_request","request_id":"1071385e-2407-4c1b-b92c-3a28fb350044","method":"DELETE","path":"/api/v1/courses/2/enroll","status":204,"duration":2339800,"ip":"127.0.0.1","user_id":91,"role":"user"}
+{"time":"2026-10-30T12:18:33.4984829+07:00","level":"INFO","msg":"http_request","request_id":"1171385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/courses/2/enroll","status":201,"duration":3571300,"ip":"127.0.0.1","user_id":91,"role":"user"}
+{"time":"2026-10-30T12:18:33.5043465+07:00","level":"INFO","msg":"http_request","request_id":"1271385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/enrollments/swap","status":200,"duration":4057900,"ip":"127.0.0.1","user_id":91,"role":"user"}
+{"time":"2026-10-30T12:18:34.2657365+07:00","level":"INFO","msg":"relay_done","published":4}
+{"time":"2026-10-30T12:18:36.0314952+07:00","level":"INFO","msg":"notification_processed","outbox_id":42,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:18:36.0442622+07:00","level":"INFO","msg":"notification_processed","outbox_id":44,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:18:36.0454865+07:00","level":"INFO","msg":"notification_processed","outbox_id":43,"event":"enrollment.dropped","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:18:36.0958601+07:00","level":"INFO","msg":"notification_processed","outbox_id":45,"event":"enrollment.swapped","retry":0,"already_sent":false}
+{"time":"2026-10-30T12:18:36.6557162+07:00","level":"INFO","msg":"http_request","request_id":"1371385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/auth/login","status":200,"duration":370557900,"ip":"127.0.0.1"}
+{"time":"2026-10-30T12:18:36.656675+07:00","level":"INFO","msg":"http_request","request_id":"1471385e-2407-4c1b-b92c-3a28fb350044","method":"GET","path":"/api/v1/notifications/mine","status":200,"duration":508400,"ip":"127.0.0.1","user_id":91,"role":"user"}

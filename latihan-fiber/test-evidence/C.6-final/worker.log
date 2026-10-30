@@ -1,0 +1,3 @@
+worker_pid=27448 delay_ms=5000 ctrlc_inheritance_reset=true baseline_relay_count=11
+ctrl_c_event_sent=True at=2026-10-30T10:46:53.6488458+07:00; worker_pid=27448
+worker_exit=True code=

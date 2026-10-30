@@ -16,17 +16,18 @@ import (
 )
 
 type Dependencies struct {
-	Pool              *pgxpool.Pool
-	MongoClient       *mongo.Client
-	MongoDatabase     *mongo.Database
-	ReviewRepository  repository.ReviewRepository
-	JWT               *helper.JWTManager
-	Permissions       *helper.PermissionSet
-	UserService       *service.UserService
-	AuthService       *service.AuthService
-	CourseService     *service.CourseService
-	EnrollmentService *service.EnrollmentService
-	ReviewService     *service.ReviewService
+	Pool                *pgxpool.Pool
+	MongoClient         *mongo.Client
+	MongoDatabase       *mongo.Database
+	ReviewRepository    repository.ReviewRepository
+	JWT                 *helper.JWTManager
+	Permissions         *helper.PermissionSet
+	UserService         *service.UserService
+	AuthService         *service.AuthService
+	CourseService       *service.CourseService
+	EnrollmentService   *service.EnrollmentService
+	ReviewService       *service.ReviewService
+	NotificationService *service.NotificationService
 }
 
 func Register(app *fiber.App, deps Dependencies) {
@@ -113,6 +114,12 @@ func Register(app *fiber.App, deps Dependencies) {
 	enrollments := api.Group("/enrollments", middleware.RequireJSON, middleware.RequireAuth(deps.JWT))
 	enrollments.Get("/", deps.EnrollmentService.List)
 	enrollments.Post("/swap", deps.CourseService.Swap)
+
+	notifications := api.Group("/notifications", middleware.RequireJSON, middleware.RequireAuth(deps.JWT))
+	notifications.Get("/mine", deps.NotificationService.Mine)
+
+	admin := api.Group("/admin", middleware.RequireJSON, middleware.RequireAuth(deps.JWT))
+	admin.Get("/queue", middleware.RequirePermission(perms, "queue:monitor"), deps.NotificationService.Monitor)
 }
 
 // healthCheck melaporkan kondisi layanan beserta databasenya.

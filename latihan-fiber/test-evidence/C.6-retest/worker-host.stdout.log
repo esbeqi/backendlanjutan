@@ -1,0 +1,5 @@
+{"time":"2026-10-30T10:44:03.8576398+07:00","level":"INFO","msg":"worker berjalan"}
+{"time":"2026-10-30T10:44:03.8794693+07:00","level":"INFO","msg":"relay_done","published":1}
+{"time":"2026-10-30T10:44:09.9028096+07:00","level":"INFO","msg":"notification_processed","outbox_id":39,"event":"enrollment.created","retry":0,"already_sent":false}
+{"time":"2026-10-30T10:44:36.4924573+07:00","level":"INFO","msg":"sinyal berhenti diterima, menutup worker"}
+{"time":"2026-10-30T10:44:36.823816+07:00","level":"INFO","msg":"worker berhenti dengan rapi"}

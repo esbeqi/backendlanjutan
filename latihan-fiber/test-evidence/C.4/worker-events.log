@@ -1,0 +1,2 @@
+﻿{"time":"2026-10-30T10:25:44.2282884+07:00","level":"INFO","msg":"relay_done","published":1}
+{"time":"2026-10-30T10:25:45.824445+07:00","level":"WARN","msg":"task_failed","type":"notification:send","attempt":"1/6","error":"skip retry for the task: pengiriman gagal permanen: alamat salah@kampus.invalid tidak ditemukan"}

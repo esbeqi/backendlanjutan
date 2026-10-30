@@ -82,7 +82,7 @@ func newErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 		// Kegagalan 4xx adalah kesalahan pemakai API, bukan kerusakan
 		// sistem; mencatatnya sebagai Error membuat log penuh bising
 		// sehingga kerusakan yang sesungguhnya justru tenggelam.
-		if appErr.Status < fiber.StatusInternalServerError {
+		if appErr.Status >= fiber.StatusInternalServerError {
 			logger.Error(
 				"request_failed",
 				slog.String("request_id", requestID),

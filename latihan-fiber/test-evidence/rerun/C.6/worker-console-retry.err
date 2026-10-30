@@ -1,0 +1,10 @@
+Select-String : Cannot find path 'E:\kuliah\semester 5\backend lanjutan\praktikum\modul 
+tugas\latihan-fiber\test-evidence\logs\app.log' because it does not exist.
+At E:\kuliah\semester 5\backend lanjutan\praktikum\modul 
+tugas\latihan-fiber\test-evidence\rerun\C.6\worker-c6-rerun.ps1:8 char:13
++ $baseCount=(Select-String -Path logs\app.log -Pattern '"msg":"relay_d ...
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (E:\kuliah\semes...ce\logs\app.log:String) [Select-String], ItemNotFound 
+   Exception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SelectStringCommand
+ 

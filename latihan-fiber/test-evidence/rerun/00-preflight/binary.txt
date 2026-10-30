@@ -1,0 +1,1 @@
+current_worker_binary=C:\Users\9cmfa\AppData\Local\Temp\latihan-fiber-rerun.exe

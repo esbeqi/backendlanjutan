@@ -1,0 +1,1 @@
+﻿{"time":"2026-10-30T10:43:20.2716078+07:00","level":"INFO","msg":"http_request","request_id":"3bb0e1a2-63fa-48d0-becd-963ac643c4ef","method":"POST","path":"/api/v1/courses/9/enroll","status":201,"duration":1710900,"ip":"127.0.0.1","user_id":97,"role":"user"}

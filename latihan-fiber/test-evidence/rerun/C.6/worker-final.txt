@@ -1,0 +1,3 @@
+worker_pid=13400 delay_ms=5000 ctrlc_inheritance_reset=true baseline_relay_count=18
+ctrl_c_event_sent=True at=2026-10-30T12:22:48.9453575+07:00; worker_pid=13400
+worker_exit=True code=
