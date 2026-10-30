@@ -1,1 +1,0 @@
-worker_pid=38244 force_stopped_after_C2=true

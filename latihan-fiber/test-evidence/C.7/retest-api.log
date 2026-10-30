@@ -1,3 +1,0 @@
-﻿{"time":"2026-10-30T10:59:40.6605589+07:00","level":"INFO","msg":"http_request","request_id":"0671385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/courses/9/enroll","status":201,"duration":12132700,"ip":"127.0.0.1","user_id":99,"role":"user"}
-{"time":"2026-10-30T10:59:40.6653027+07:00","level":"INFO","msg":"http_request","request_id":"0771385e-2407-4c1b-b92c-3a28fb350044","method":"POST","path":"/api/v1/courses/9/enroll","status":409,"duration":2649900,"ip":"127.0.0.1","user_id":99,"role":"user"}
-{"time":"2026-10-30T10:59:40.6653027+07:00","level":"WARN","msg":"request_rejected","request_id":"0771385e-2407-4c1b-b92c-3a28fb350044","path":"/api/v1/courses/9/enroll","code":"ALREADY_ENROLLED","status":409}

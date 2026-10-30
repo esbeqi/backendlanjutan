@@ -1,9 +1,0 @@
-﻿{"time":"2026-10-30T10:23:14.2560323+07:00","level":"INFO","msg":"relay_done","published":6}
-{"time":"2026-10-30T10:23:16.2342497+07:00","level":"INFO","msg":"notification_processed","outbox_id":26,"event":"enrollment.created","retry":0,"already_sent":false}
-{"time":"2026-10-30T10:23:16.2402445+07:00","level":"INFO","msg":"notification_processed","outbox_id":27,"event":"enrollment.created","retry":0,"already_sent":false}
-{"time":"2026-10-30T10:23:16.2422459+07:00","level":"WARN","msg":"task_failed","type":"notification:send","attempt":"1/6","error":"pengiriman gagal sementara: server email sibuk (attempt ke-3)"}
-{"time":"2026-10-30T10:23:16.2889834+07:00","level":"INFO","msg":"notification_processed","outbox_id":29,"event":"enrollment.created","retry":0,"already_sent":false}
-{"time":"2026-10-30T10:23:16.2950642+07:00","level":"INFO","msg":"notification_processed","outbox_id":30,"event":"enrollment.created","retry":0,"already_sent":false}
-{"time":"2026-10-30T10:23:17.7438798+07:00","level":"WARN","msg":"task_failed","type":"notification:send","attempt":"1/6","error":"pengiriman gagal sementara: server email sibuk (attempt ke-6)"}
-{"time":"2026-10-30T10:23:20.0847258+07:00","level":"INFO","msg":"notification_processed","outbox_id":28,"event":"enrollment.created","retry":1,"already_sent":false}
-{"time":"2026-10-30T10:23:25.1773908+07:00","level":"INFO","msg":"notification_processed","outbox_id":31,"event":"enrollment.created","retry":1,"already_sent":false}

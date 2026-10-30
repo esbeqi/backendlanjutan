@@ -1,2 +1,0 @@
-host_pid=23904
-host_exit_code=

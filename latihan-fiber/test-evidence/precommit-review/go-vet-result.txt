@@ -1,1 +1,0 @@
-go vet ./... exit_code=0

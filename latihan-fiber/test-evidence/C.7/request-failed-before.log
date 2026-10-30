@@ -1,1 +1,0 @@
-﻿{"time":"2026-10-30T10:19:13.5216835+07:00","level":"ERROR","msg":"request_failed","request_id":"e3afe1a2-63fa-48d0-becd-963ac643c4ef","path":"/api/v1/courses/2/enroll","code":"ALREADY_ENROLLED","status":409,"error":"ALREADY_ENROLLED: Anda sudah terdaftar di kelas ini"}

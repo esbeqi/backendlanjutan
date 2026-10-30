@@ -1,1 +1,0 @@
-MAILER_DELAY_MS restored to 1500; .env unchanged

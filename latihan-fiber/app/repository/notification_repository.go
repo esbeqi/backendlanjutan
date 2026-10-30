@@ -26,11 +26,26 @@ func (r *notificationPostgresRepository) WithTx(tx DBTX) NotificationRepository 
 }
 
 func (r *notificationPostgresRepository) Claim(ctx context.Context, n model.Notification) (bool, error) {
+	var outboxID int64
+	if err := r.db.QueryRow(ctx, `
+		SELECT id FROM outbox WHERE id = $1 FOR UPDATE`, n.OutboxID).Scan(&outboxID); err != nil {
+		return false, fmt.Errorf("mengunci event outbox: %w", err)
+	}
+
+	var exists bool
+	if err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM notifications WHERE outbox_id = $1)`, n.OutboxID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("memeriksa klaim notifikasi: %w", err)
+	}
+	if exists {
+		return false, nil
+	}
+
 	var id int64
 	err := r.db.QueryRow(ctx, `
 		INSERT INTO notifications (outbox_id, user_id, channel, subject, body)
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (outbox_id) DO NOTHING
+		ON CONFLICT DO NOTHING
 		RETURNING id`, n.OutboxID, n.UserID, n.Channel, n.Subject, n.Body).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil

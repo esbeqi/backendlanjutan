@@ -1,2 +1,0 @@
-Worker dijalankan lewat executable langsung dari PowerShell child host; host memulihkan handler Ctrl+C sebelum child dibuat. Windows CTRL_C_EVENT dikirim tepat setelah jeda 2 detik dari relay_done. Proses worker keluar dengan exit code 0 setelah notification_processed.
-API request log for final retest: POST /api/v1/courses/9/enroll returned 201 (user_id=98).

@@ -1,5 +1,0 @@
-﻿{"time":"2026-10-30T10:35:59.5984113+07:00","level":"INFO","msg":"worker berjalan"}
-{"time":"2026-10-30T10:35:59.6190546+07:00","level":"INFO","msg":"relay_done","published":1}
-{"time":"2026-10-30T10:36:05.8226508+07:00","level":"INFO","msg":"notification_processed","outbox_id":35,"event":"enrollment.created","retry":0,"already_sent":false}
-{"time":"2026-10-30T10:37:53.6043921+07:00","level":"INFO","msg":"relay_done","published":1}
-{"time":"2026-10-30T10:37:58.8325356+07:00","level":"INFO","msg":"notification_processed","outbox_id":36,"event":"enrollment.created","retry":0,"already_sent":false}

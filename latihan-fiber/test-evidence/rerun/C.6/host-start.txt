@@ -1,2 +1,0 @@
-host_pid=20460 visible_console=true same_console_child_worker=true
-host_exited=True exit_code=
